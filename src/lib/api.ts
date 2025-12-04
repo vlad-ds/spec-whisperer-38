@@ -133,6 +133,21 @@ export const markAsReviewed = async (id: string): Promise<void> => {
   }
 };
 
+// Map frontend camelCase field names to Airtable snake_case field names
+const fieldNameMap: Record<string, string> = {
+  contractType: 'contract_type',
+  agreementDate: 'agreement_date',
+  effectiveDate: 'effective_date',
+  expirationDate: 'expiration_date',
+  expirationType: 'expiration_type',
+  noticeDeadline: 'notice_deadline',
+  firstRenewalDate: 'first_renewal_date',
+  governingLaw: 'governing_law',
+  noticePeriod: 'notice_period',
+  renewalTerm: 'renewal_term',
+  reviewedAt: 'reviewed_at',
+};
+
 export const updateField = async (
   contractId: string,
   fieldName: string,
@@ -143,11 +158,14 @@ export const updateField = async (
     return;
   }
 
+  // Convert camelCase to snake_case for Airtable
+  const airtableFieldName = fieldNameMap[fieldName] || fieldName;
+
   const { error } = await supabase.functions.invoke('contract-api', {
     body: {
       action: 'update-field',
       id: contractId,
-      field_name: fieldName,
+      field_name: airtableFieldName,
       original_value: originalValue,
       new_value: newValue,
     },
