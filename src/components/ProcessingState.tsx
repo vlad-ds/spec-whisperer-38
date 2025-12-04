@@ -22,7 +22,7 @@ export const ProcessingState = ({ onCancel }: ProcessingStateProps) => {
         Our AI is reading and extracting key metadata
       </p>
       <p className="text-xs text-muted-foreground mb-6">
-        This typically takes 30-90 seconds. Please don't close this page.
+        This typically takes 1-3 minutes. Please don't close this page.
       </p>
       
       <Button variant="outline" onClick={onCancel}>
