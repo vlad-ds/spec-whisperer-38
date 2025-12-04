@@ -132,6 +132,15 @@ serve(async (req) => {
           );
         }
 
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
+          return new Response(
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const fieldName = requestBody?.field_name as string;
         const newValue = requestBody?.new_value;
 
@@ -142,30 +151,33 @@ serve(async (req) => {
           );
         }
 
-        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
-        console.log(`Updating field ${fieldName} in Airtable: ${airtableUrl}`);
+        const updateUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}/fields`;
+        console.log(`Updating field ${fieldName} via ComplyFlow API: ${updateUrl}`);
 
-        const response = await fetch(airtableUrl, {
+        const response = await fetch(updateUrl, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': complyflowApiKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            fields: {
-              [fieldName]: newValue,
-            },
+            [fieldName]: newValue,
           }),
         });
 
+        console.log('Update response status:', response.status);
+
         if (!response.ok) {
-          const error = await response.text();
-          console.error('Airtable error:', error);
+          const errorText = await response.text();
+          console.error('ComplyFlow API update error:', response.status, errorText);
           return new Response(
-            JSON.stringify({ error: 'Failed to update field' }),
+            JSON.stringify({ error: `Failed to update field: ${errorText}` }),
             { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+
+        const result = await response.json();
+        console.log('Update successful:', result);
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
