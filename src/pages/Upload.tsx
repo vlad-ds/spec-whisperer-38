@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { FileDropzone } from '@/components/FileDropzone';
 import { FileSelected } from '@/components/FileSelected';
 import { ProcessingState } from '@/components/ProcessingState';
@@ -12,6 +13,7 @@ type UploadState = 'idle' | 'selected' | 'uploading' | 'error';
 
 const Upload = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<UploadState>('idle');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,8 @@ const Upload = () => {
 
     try {
       const result = await uploadContract(selectedFile);
+      // Invalidate contracts list cache so it refreshes when user navigates there
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
       toast({
         title: 'Contract uploaded',
         description: 'Metadata has been extracted successfully.',
