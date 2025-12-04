@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -38,10 +39,10 @@ import { toast } from '@/hooks/use-toast';
 const ContractEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const [contract, setContract] = useState<ParsedContract | null>(null);
   const [originalContract, setOriginalContract] = useState<ParsedContract | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
@@ -49,29 +50,36 @@ const ContractEditor = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const fetchContract = async () => {
-      if (!id) return;
-      
-      try {
-        const record = await getContract(id);
-        const parsed = parseContract(record);
-        setContract(parsed);
-        setOriginalContract(parsed);
-      } catch {
-        toast({
-          title: 'Error',
-          description: 'Failed to load contract',
-          variant: 'destructive',
-        });
-        navigate('/');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data, isLoading: loading, isError } = useQuery({
+    queryKey: ['contract', id],
+    queryFn: async () => {
+      const record = await getContract(id!);
+      return parseContract(record);
+    },
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000,
+  });
 
-    fetchContract();
-  }, [id, navigate]);
+  // Sync query data to local state
+  useEffect(() => {
+    if (data) {
+      setContract(data);
+      setOriginalContract(data);
+    }
+  }, [data]);
+
+  // Handle error
+  useEffect(() => {
+    if (isError) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load contract',
+        variant: 'destructive',
+      });
+      navigate('/');
+    }
+  }, [isError, navigate]);
 
   const debouncedSave = useCallback(async (
     fieldName: string,

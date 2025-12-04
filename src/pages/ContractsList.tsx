@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,7 +27,7 @@ import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react'
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { deleteContract } from '@/lib/api';
+import { deleteContract, getContract, parseContract } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface AirtableRecord {
@@ -189,6 +189,18 @@ const ContractsList = () => {
       deleteMutation.mutate(contractToDelete.id);
     }
   };
+
+  // Prefetch contract on hover for faster navigation
+  const prefetchContract = useCallback((id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['contract', id],
+      queryFn: async () => {
+        const record = await getContract(id);
+        return parseContract(record);
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [queryClient]);
 
   const sortedContracts = useMemo(() => {
     if (!contracts) return [];
@@ -362,6 +374,7 @@ const ContractsList = () => {
                       key={contract.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => navigate(`/contracts/${contract.id}`)}
+                      onMouseEnter={() => prefetchContract(contract.id)}
                     >
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {contract.fields.filename || 'Untitled'}
