@@ -127,8 +127,9 @@ serve(async (req) => {
         console.log('Available fields in record:', Object.keys(record.fields || {}));
         
         // Look for PDF URL field (stored path to our storage bucket)
-        const pdfPath = record.fields?.['PDF URL'] || record.fields?.['pdf_url'];
+        const pdfPath = record.fields?.pdf_url;
         const filename = record.fields?.filename;
+        console.log('PDF path from Airtable:', pdfPath);
         
         let pdfUrl: string | null = null;
 
@@ -481,7 +482,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             fields: {
-              'PDF URL': storagePath,
+              pdf_url: storagePath,
             },
           }),
         });
