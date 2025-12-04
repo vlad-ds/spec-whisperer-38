@@ -51,21 +51,29 @@ serve(async (req) => {
           );
         }
 
-        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
-        console.log(`Fetching from Airtable: ${airtableUrl}`);
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
+          return new Response(
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
-        const response = await fetch(airtableUrl, {
+        const getUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}`;
+        console.log(`Fetching contract via ComplyFlow API: ${getUrl}`);
+
+        const response = await fetch(getUrl, {
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
+            'X-API-Key': complyflowApiKey,
           },
         });
 
         if (!response.ok) {
           const error = await response.text();
-          console.error('Airtable error:', error);
+          console.error('ComplyFlow API error:', response.status, error);
           return new Response(
-            JSON.stringify({ error: 'Failed to fetch contract from Airtable' }),
+            JSON.stringify({ error: 'Failed to fetch contract' }),
             { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -73,11 +81,11 @@ serve(async (req) => {
         const record = await response.json();
         console.log(`Fetched contract: ${record.id}`);
 
-        // Transform Airtable record to expected format
+        // Transform to expected format
         const result = {
           id: record.id,
           fields: record.fields,
-          created_time: record.createdTime,
+          created_time: record.created_time,
         };
 
         return new Response(JSON.stringify(result), {
@@ -93,33 +101,42 @@ serve(async (req) => {
           );
         }
 
-        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
-        console.log(`Updating status in Airtable: ${airtableUrl}`);
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
+          return new Response(
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
-        const response = await fetch(airtableUrl, {
+        const reviewUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}/review`;
+        console.log(`Marking contract as reviewed via ComplyFlow API: ${reviewUrl}`);
+
+        const response = await fetch(reviewUrl, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': complyflowApiKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            fields: {
-              status: 'reviewed',
-              reviewed_at: new Date().toISOString(),
-            },
-          }),
+          body: JSON.stringify({ reviewed: true }),
         });
+
+        console.log('Review response status:', response.status);
 
         if (!response.ok) {
           const error = await response.text();
-          console.error('Airtable error:', error);
+          console.error('ComplyFlow API error:', response.status, error);
           return new Response(
-            JSON.stringify({ error: 'Failed to update contract status' }),
+            JSON.stringify({ error: 'Failed to mark contract as reviewed' }),
             { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        return new Response(JSON.stringify({ success: true }), {
+        const result = await response.json();
+        console.log('Mark reviewed successful:', result);
+
+        return new Response(JSON.stringify({ success: true, ...result }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
