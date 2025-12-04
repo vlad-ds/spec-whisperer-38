@@ -16,13 +16,13 @@ export const ProcessingState = ({ onCancel }: ProcessingStateProps) => {
       </div>
       
       <h3 className="text-lg font-semibold text-foreground mb-2">
-        Processing...
+        Analyzing your contract...
       </h3>
       <p className="text-sm text-muted-foreground mb-1">
-        Extracting contract metadata
+        Our AI is reading and extracting key metadata
       </p>
       <p className="text-xs text-muted-foreground mb-6">
-        This takes about 30-60 seconds
+        This typically takes 30-90 seconds. Please don't close this page.
       </p>
       
       <Button variant="outline" onClick={onCancel}>
