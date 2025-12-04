@@ -446,9 +446,10 @@ serve(async (req) => {
         if (!response.ok) {
           const error = await response.text();
           console.error('ComplyFlow API citations error:', response.status, error);
+          // Return empty citations with 200 status - citations are optional
           return new Response(
-            JSON.stringify({ error: 'Failed to fetch citations', citations: [] }),
-            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ citations: [] }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
