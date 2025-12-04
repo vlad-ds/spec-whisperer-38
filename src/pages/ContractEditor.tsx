@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -250,24 +250,14 @@ const ContractEditor = () => {
           
           <div className="flex items-center gap-3">
             {hasPdf ? (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPdfViewer(true)}
-                  className="gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  View PDF
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.open(getPdfProxyUrl(id!), '_blank')}
-                  title="Open PDF in new tab"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                onClick={() => setShowPdfViewer(true)}
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                View PDF
+              </Button>
             ) : isPdfLoading ? (
               <Button variant="outline" disabled className="gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
