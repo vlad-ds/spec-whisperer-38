@@ -183,3 +183,23 @@ export const getPdfProxyUrl = (id: string): string => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   return `${supabaseUrl}/functions/v1/contract-api?action=download-pdf&id=${id}`;
 };
+
+// Citation types
+export interface Citation {
+  field_name: string;
+  quote: string;
+  reasoning: string;
+  ai_value: string;
+}
+
+export const getCitations = async (id: string): Promise<Citation[]> => {
+  const { data, error } = await supabase.functions.invoke('contract-api', {
+    body: { action: 'get-citations', id },
+  });
+
+  if (error) {
+    throw new Error('Failed to fetch citations');
+  }
+
+  return data?.citations || [];
+};
