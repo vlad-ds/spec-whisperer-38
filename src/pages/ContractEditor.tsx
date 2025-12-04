@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import {
   parseContract,
   markAsReviewed,
   updateField,
+  getPdfUrl,
   type ParsedContract,
 } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -46,6 +47,8 @@ const ContractEditor = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -85,6 +88,25 @@ const ContractEditor = () => {
       navigate('/');
     }
   }, [isError, navigate]);
+
+  // Fetch PDF URL
+  useEffect(() => {
+    if (!id) return;
+    
+    const fetchPdfUrl = async () => {
+      setIsPdfLoading(true);
+      try {
+        const result = await getPdfUrl(id);
+        setPdfUrl(result.pdfUrl);
+      } catch (error) {
+        console.error('Failed to fetch PDF URL:', error);
+      } finally {
+        setIsPdfLoading(false);
+      }
+    };
+    
+    fetchPdfUrl();
+  }, [id]);
 
   const debouncedSave = useCallback(async (
     fieldName: string,
@@ -218,6 +240,23 @@ const ContractEditor = () => {
           </Button>
           
           <div className="flex items-center gap-3">
+            {pdfUrl ? (
+              <Button
+                variant="outline"
+                onClick={() => window.open(pdfUrl, '_blank')}
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                View PDF
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            ) : isPdfLoading ? (
+              <Button variant="outline" disabled className="gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading PDF...
+              </Button>
+            ) : null}
+            
             <SaveIndicator status={saveStatus} />
             
             {isReviewed ? (

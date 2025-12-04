@@ -165,3 +165,15 @@ export const deleteContract = async (id: string): Promise<void> => {
     throw new Error(data.error);
   }
 };
+
+export const getPdfUrl = async (id: string): Promise<{ pdfUrl: string | null; filename: string | null }> => {
+  const { data, error } = await supabase.functions.invoke('contract-api', {
+    body: { action: 'get-pdf-url', id },
+  });
+
+  if (error) {
+    throw new Error('Failed to fetch PDF URL');
+  }
+
+  return data;
+};

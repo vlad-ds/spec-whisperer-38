@@ -88,6 +88,58 @@ serve(async (req) => {
         });
       }
 
+      case 'get-pdf-url': {
+        if (!contractId) {
+          return new Response(
+            JSON.stringify({ error: 'Contract ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch directly from Airtable to get attachment URLs
+        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
+        console.log(`Fetching PDF URL from Airtable: ${airtableUrl}`);
+
+        const airtableResponse = await fetch(airtableUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+          },
+        });
+
+        if (!airtableResponse.ok) {
+          const error = await airtableResponse.text();
+          console.error('Airtable error:', airtableResponse.status, error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch PDF URL' }),
+            { status: airtableResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const record = await airtableResponse.json();
+        
+        // Look for PDF attachment field (could be named 'pdf', 'PDF', 'attachment', 'file', etc.)
+        const attachmentFieldNames = ['pdf', 'PDF', 'attachment', 'Attachment', 'file', 'File', 'document', 'Document'];
+        let pdfUrl: string | null = null;
+        let pdfFilename: string | null = null;
+
+        for (const fieldName of attachmentFieldNames) {
+          const attachments = record.fields?.[fieldName];
+          if (Array.isArray(attachments) && attachments.length > 0) {
+            pdfUrl = attachments[0].url;
+            pdfFilename = attachments[0].filename;
+            console.log(`Found PDF in field '${fieldName}': ${pdfFilename}`);
+            break;
+          }
+        }
+
+        return new Response(JSON.stringify({ 
+          pdfUrl, 
+          filename: pdfFilename || record.fields?.filename 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'get': {
         if (!contractId) {
           return new Response(
