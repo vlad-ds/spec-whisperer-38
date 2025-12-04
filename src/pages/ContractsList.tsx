@@ -1,12 +1,22 @@
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Calendar, Users, ArrowRight } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { FileText, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface AirtableRecord {
   id: string;
@@ -27,6 +37,9 @@ interface AirtableResponse {
   records: AirtableRecord[];
   offset?: string;
 }
+
+type SortField = 'filename' | 'contract_type' | 'parties' | 'effective_date' | 'expiration_date' | 'status' | 'createdTime';
+type SortDirection = 'asc' | 'desc';
 
 const fetchContracts = async (): Promise<AirtableRecord[]> => {
   const { data, error } = await supabase.functions.invoke<AirtableResponse>('airtable-contracts');
@@ -73,11 +86,106 @@ const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) =>
   );
 };
 
+const SortableHeader = ({ 
+  label, 
+  field, 
+  currentSort, 
+  currentDirection, 
+  onSort 
+}: { 
+  label: string; 
+  field: SortField; 
+  currentSort: SortField; 
+  currentDirection: SortDirection;
+  onSort: (field: SortField) => void;
+}) => {
+  const isActive = currentSort === field;
+  
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-ml-3 h-8 data-[state=open]:bg-accent"
+      onClick={() => onSort(field)}
+    >
+      {label}
+      {isActive ? (
+        currentDirection === 'asc' ? (
+          <ArrowUp className="ml-2 h-4 w-4" />
+        ) : (
+          <ArrowDown className="ml-2 h-4 w-4" />
+        )
+      ) : (
+        <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+      )}
+    </Button>
+  );
+};
+
 const ContractsList = () => {
+  const [sortField, setSortField] = useState<SortField>('createdTime');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
   const { data: contracts, isLoading, error } = useQuery({
     queryKey: ['contracts'],
     queryFn: fetchContracts,
   });
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedContracts = useMemo(() => {
+    if (!contracts) return [];
+    
+    return [...contracts].sort((a, b) => {
+      let aValue: string | undefined;
+      let bValue: string | undefined;
+      
+      switch (sortField) {
+        case 'filename':
+          aValue = a.fields.filename?.toLowerCase();
+          bValue = b.fields.filename?.toLowerCase();
+          break;
+        case 'contract_type':
+          aValue = a.fields.contract_type?.toLowerCase();
+          bValue = b.fields.contract_type?.toLowerCase();
+          break;
+        case 'parties':
+          aValue = parseParties(a.fields.parties).join(', ').toLowerCase();
+          bValue = parseParties(b.fields.parties).join(', ').toLowerCase();
+          break;
+        case 'effective_date':
+          aValue = a.fields.effective_date;
+          bValue = b.fields.effective_date;
+          break;
+        case 'expiration_date':
+          aValue = a.fields.expiration_date;
+          bValue = b.fields.expiration_date;
+          break;
+        case 'status':
+          aValue = a.fields.status;
+          bValue = b.fields.status;
+          break;
+        case 'createdTime':
+          aValue = a.createdTime;
+          bValue = b.createdTime;
+          break;
+      }
+      
+      if (!aValue && !bValue) return 0;
+      if (!aValue) return sortDirection === 'asc' ? 1 : -1;
+      if (!bValue) return sortDirection === 'asc' ? -1 : 1;
+      
+      const comparison = aValue.localeCompare(bValue);
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [contracts, sortField, sortDirection]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -100,26 +208,20 @@ const ContractsList = () => {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-5 w-3/4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-1/2 mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card className="p-4">
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          </Card>
         ) : error ? (
           <Card className="p-6 text-center">
             <p className="text-destructive">
               {error instanceof Error ? error.message : 'Failed to load contracts'}
             </p>
           </Card>
-        ) : contracts?.length === 0 ? (
+        ) : sortedContracts.length === 0 ? (
           <Card className="p-8 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No contracts found</p>
@@ -131,61 +233,116 @@ const ContractsList = () => {
             </Link>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {contracts?.map((contract) => {
-              const parties = parseParties(contract.fields.parties);
-              
-              return (
-                <Link 
-                  key={contract.id} 
-                  to={`/contracts/${contract.id}`}
-                  className="block"
-                >
-                  <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base font-medium line-clamp-2">
-                          {contract.fields.filename || 'Untitled Contract'}
-                        </CardTitle>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <SortableHeader 
+                      label="Filename" 
+                      field="filename" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <SortableHeader 
+                      label="Type" 
+                      field="contract_type" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    <SortableHeader 
+                      label="Parties" 
+                      field="parties" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead className="hidden lg:table-cell">
+                    <SortableHeader 
+                      label="Effective" 
+                      field="effective_date" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead className="hidden lg:table-cell">
+                    <SortableHeader 
+                      label="Expires" 
+                      field="expiration_date" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <SortableHeader 
+                      label="Status" 
+                      field="status" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead className="hidden sm:table-cell">
+                    <SortableHeader 
+                      label="Uploaded" 
+                      field="createdTime" 
+                      currentSort={sortField} 
+                      currentDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedContracts.map((contract) => {
+                  const parties = parseParties(contract.fields.parties);
+                  
+                  return (
+                    <TableRow 
+                      key={contract.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => window.location.href = `/contracts/${contract.id}`}
+                    >
+                      <TableCell className="font-medium max-w-[200px] truncate">
+                        {contract.fields.filename || 'Untitled'}
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {contract.fields.contract_type?.replace(/-/g, ' ') || '—'}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell max-w-[200px] truncate">
+                        {parties.length > 0 ? parties.join(', ') : '—'}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {formatDate(contract.fields.effective_date)}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {formatDate(contract.fields.expiration_date)}
+                      </TableCell>
+                      <TableCell>
                         <Badge 
                           variant={contract.fields.status === 'reviewed' ? 'default' : 'secondary'}
-                          className="shrink-0"
                         >
-                          {contract.fields.status || 'under_review'}
+                          {contract.fields.status === 'reviewed' ? 'Reviewed' : 'Under Review'}
                         </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {contract.fields.contract_type && (
-                        <p className="text-sm text-muted-foreground capitalize">
-                          {contract.fields.contract_type.replace(/-/g, ' ')}
-                        </p>
-                      )}
-                      
-                      {parties.length > 0 && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Users className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{parties.join(', ')}</span>
-                        </div>
-                      )}
-                      
-                      {contract.fields.effective_date && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4 shrink-0" />
-                          <span>Effective: {formatDate(contract.fields.effective_date)}</span>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center text-primary text-sm pt-2">
-                        <span>View details</span>
-                        <ArrowRight className="h-4 w-4 ml-1" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">
+                        {formatDate(contract.createdTime)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
         )}
       </main>
     </div>
