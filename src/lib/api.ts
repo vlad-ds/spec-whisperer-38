@@ -132,13 +132,21 @@ export const updateField = async (
   // Convert camelCase to snake_case for Airtable
   const airtableFieldName = fieldNameMap[fieldName] || fieldName;
 
+  // Format date values to ISO string (YYYY-MM-DD) for Airtable
+  let formattedValue = newValue;
+  if (newValue instanceof Date) {
+    formattedValue = newValue.toISOString().split('T')[0];
+  } else if (newValue === null && airtableFieldName.includes('date')) {
+    formattedValue = null;
+  }
+
   const { data, error } = await supabase.functions.invoke('contract-api', {
     body: {
       action: 'update-field',
       id: contractId,
       field_name: airtableFieldName,
       original_value: originalValue,
-      new_value: newValue,
+      new_value: formattedValue,
     },
   });
 
