@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { FileDropzone } from '@/components/FileDropzone';
 import { FileSelected } from '@/components/FileSelected';
 import { ProcessingState } from '@/components/ProcessingState';
 import { Card } from '@/components/ui/card';
 import { uploadContract } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type UploadState = 'idle' | 'selected' | 'uploading' | 'error';
 
@@ -63,17 +64,45 @@ const Upload = () => {
     handleUpload();
   };
 
+  const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) => {
+    const location = useLocation();
+    const isActive = location.pathname === to;
+    
+    return (
+      <Link
+        to={to}
+        className={cn(
+          'text-sm font-medium transition-colors hover:text-primary',
+          isActive ? 'text-foreground' : 'text-muted-foreground'
+        )}
+      >
+        {children}
+      </Link>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-[600px]">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">
-            ComplyFlow
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Upload contracts for AI-powered metadata extraction
-          </p>
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-foreground">ComplyFlow</h1>
+          <nav className="flex gap-4">
+            <NavItem to="/">Upload</NavItem>
+            <NavItem to="/contracts">Contracts</NavItem>
+          </nav>
         </div>
+      </header>
+
+      <main className="flex flex-col items-center justify-center p-6" style={{ minHeight: 'calc(100vh - 65px)' }}>
+        <div className="w-full max-w-[600px]">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">
+              Upload Contract
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Upload contracts for AI-powered metadata extraction
+            </p>
+          </div>
 
         <Card className="p-6">
           {state === 'uploading' ? (
@@ -105,7 +134,8 @@ const Upload = () => {
           )}
         </Card>
       </div>
-    </div>
+    </main>
+  </div>
   );
 };
 
