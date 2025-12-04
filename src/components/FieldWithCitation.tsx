@@ -27,8 +27,9 @@ export const FieldWithCitation = ({
 }: FieldWithCitationProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
-  const isEdited = citation && citation.ai_value !== currentValue && currentValue !== '';
   const hasCitation = citation && (citation.quote || citation.reasoning);
+  // Only show "Edited" if we have an AI value to compare against
+  const isEdited = hasCitation && citation?.ai_value && citation.ai_value !== currentValue;
 
   return (
     <Card className={cn('p-6', className)}>
