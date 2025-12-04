@@ -39,8 +39,11 @@ import {
   updateField,
   getPdfUrl,
   getPdfProxyUrl,
+  getCitations,
   type ParsedContract,
+  type Citation,
 } from '@/lib/api';
+import { FieldWithCitation } from '@/components/FieldWithCitation';
 import { toast } from '@/hooks/use-toast';
 import { useAirtableSchema, DEFAULT_CONTRACT_TYPES } from '@/hooks/useAirtableSchema';
 
@@ -64,6 +67,19 @@ const ContractEditor = () => {
   // Fetch schema for select field options (cached in localStorage for 24h)
   const { data: schemaData } = useAirtableSchema();
   const contractTypes = schemaData?.selectFields?.contract_type ?? DEFAULT_CONTRACT_TYPES;
+
+  // Fetch citations
+  const { data: citations } = useQuery({
+    queryKey: ['citations', id],
+    queryFn: () => getCitations(id!),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Helper to get citation by field name
+  const getCitationForField = (fieldName: string): Citation | undefined => {
+    return citations?.find(c => c.field_name === fieldName);
+  };
 
   const { data, isLoading: loading, isError } = useQuery({
     queryKey: ['contract', id],
@@ -294,21 +310,23 @@ const ContractEditor = () => {
 
         <div className="space-y-6">
           {/* Parties */}
-          <Card className="p-6">
-            <label className="block text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Parties
-            </label>
+          <FieldWithCitation
+            label="Parties"
+            citation={getCitationForField('parties')}
+            currentValue={JSON.stringify(contract.parties)}
+          >
             <PartyInput
               parties={contract.parties}
               onChange={(parties) => handleFieldChange('parties', parties)}
             />
-          </Card>
+          </FieldWithCitation>
 
           {/* Contract Type */}
-          <Card className="p-6">
-            <label className="block text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Contract Type
-            </label>
+          <FieldWithCitation
+            label="Contract Type"
+            citation={getCitationForField('contract_type')}
+            currentValue={contract.contractType}
+          >
             <Select
               value={contract.contractType}
               onValueChange={(value) => handleFieldChange('contractType', value)}
@@ -326,81 +344,99 @@ const ContractEditor = () => {
                 ))}
               </SelectContent>
             </Select>
-          </Card>
+          </FieldWithCitation>
 
           {/* Dates Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="p-6">
+            <FieldWithCitation
+              label="Agreement Date"
+              citation={getCitationForField('agreement_date')}
+              currentValue={contract.agreementDate?.toISOString().split('T')[0] || ''}
+            >
               <DateField
-                label="Agreement Date"
                 value={contract.agreementDate}
                 onChange={(date) => handleFieldChange('agreementDate', date)}
               />
-            </Card>
-            <Card className="p-6">
+            </FieldWithCitation>
+            <FieldWithCitation
+              label="Effective Date"
+              citation={getCitationForField('effective_date')}
+              currentValue={contract.effectiveDate?.toISOString().split('T')[0] || ''}
+            >
               <DateField
-                label="Effective Date"
                 value={contract.effectiveDate}
                 onChange={(date) => handleFieldChange('effectiveDate', date)}
               />
-            </Card>
-            <Card className="p-6">
+            </FieldWithCitation>
+            <FieldWithCitation
+              label="Expiration Date"
+              citation={getCitationForField('expiration_date')}
+              currentValue={contract.expirationDate?.toISOString().split('T')[0] || ''}
+            >
               <DateField
-                label="Expiration Date"
                 value={contract.expirationDate}
                 onChange={(date) => handleFieldChange('expirationDate', date)}
               />
-            </Card>
-            <Card className="p-6">
+            </FieldWithCitation>
+            <FieldWithCitation
+              label="Notice Deadline"
+              citation={getCitationForField('notice_deadline')}
+              currentValue={contract.noticeDeadline?.toISOString().split('T')[0] || ''}
+            >
               <DateField
-                label="Notice Deadline"
                 value={contract.noticeDeadline}
                 onChange={(date) => handleFieldChange('noticeDeadline', date)}
               />
-            </Card>
-            <Card className="p-6">
+            </FieldWithCitation>
+            <FieldWithCitation
+              label="First Renewal Date"
+              citation={getCitationForField('first_renewal_date')}
+              currentValue={contract.firstRenewalDate?.toISOString().split('T')[0] || ''}
+            >
               <DateField
-                label="First Renewal Date"
                 value={contract.firstRenewalDate}
                 onChange={(date) => handleFieldChange('firstRenewalDate', date)}
               />
-            </Card>
+            </FieldWithCitation>
           </div>
 
           {/* Text Fields */}
-          <Card className="p-6">
-            <label className="block text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Governing Law
-            </label>
+          <FieldWithCitation
+            label="Governing Law"
+            citation={getCitationForField('governing_law')}
+            currentValue={contract.governingLaw}
+          >
             <Input
               value={contract.governingLaw}
               onChange={(e) => handleFieldChange('governingLaw', e.target.value)}
               placeholder="e.g., State of Delaware"
             />
-          </Card>
+          </FieldWithCitation>
 
-          <Card className="p-6">
-            <label className="block text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Notice Period
-            </label>
+          <FieldWithCitation
+            label="Notice Period"
+            citation={getCitationForField('notice_period')}
+            currentValue={contract.noticePeriod}
+          >
             <Input
               value={contract.noticePeriod}
               onChange={(e) => handleFieldChange('noticePeriod', e.target.value)}
               placeholder="e.g., 90 days prior written notice"
             />
-          </Card>
+          </FieldWithCitation>
 
-          <Card className="p-6">
-            <label className="block text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Renewal Term
-            </label>
+          <FieldWithCitation
+            label="Renewal Term"
+            citation={getCitationForField('renewal_term')}
+            currentValue={contract.renewalTerm}
+          >
             <Textarea
               value={contract.renewalTerm}
               onChange={(e) => handleFieldChange('renewalTerm', e.target.value)}
               placeholder="Enter renewal term details..."
               rows={4}
             />
-          </Card>
+          </FieldWithCitation>
         </div>
       </main>
 

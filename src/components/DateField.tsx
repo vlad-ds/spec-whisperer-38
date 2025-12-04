@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 
 interface DateFieldProps {
-  label: string;
+  label?: string;
   value: Date | null;
   onChange: (date: Date | null) => void;
 }
@@ -18,9 +18,11 @@ interface DateFieldProps {
 export const DateField = ({ label, value, onChange }: DateFieldProps) => {
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-        {label}
-      </label>
+      {label && (
+        <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          {label}
+        </label>
+      )}
       <Popover>
         <PopoverTrigger asChild>
           <Button

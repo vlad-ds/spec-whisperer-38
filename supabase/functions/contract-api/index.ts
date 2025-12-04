@@ -417,6 +417,49 @@ serve(async (req) => {
         });
       }
 
+      case 'get-citations': {
+        if (!contractId) {
+          return new Response(
+            JSON.stringify({ error: 'Contract ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
+          return new Response(
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const citationsUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}/citations`;
+        console.log(`Fetching citations via ComplyFlow API: ${citationsUrl}`);
+
+        const response = await fetch(citationsUrl, {
+          headers: {
+            'X-API-Key': complyflowApiKey,
+          },
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('ComplyFlow API citations error:', response.status, error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch citations', citations: [] }),
+            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const citationsData = await response.json();
+        console.log(`Fetched ${citationsData.citations?.length || 0} citations`);
+
+        return new Response(JSON.stringify(citationsData), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'upload': {
         const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
         if (!complyflowApiKey) {
