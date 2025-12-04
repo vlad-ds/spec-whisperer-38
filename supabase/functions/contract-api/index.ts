@@ -5,19 +5,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, action',
 };
 
-const API_BASE_URL = 'https://api.complyflow.example.com';
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const apiKey = Deno.env.get('COMPLYFLOW_API_KEY');
-  if (!apiKey) {
-    console.error('COMPLYFLOW_API_KEY not configured');
+  const apiKey = Deno.env.get('AIRTABLE_API_KEY');
+  const baseId = Deno.env.get('AIRTABLE_BASE_ID');
+  const tableName = Deno.env.get('AIRTABLE_TABLE_NAME');
+
+  if (!apiKey || !baseId || !tableName) {
+    console.error('Airtable configuration missing');
     return new Response(
-      JSON.stringify({ error: 'API key not configured' }),
+      JSON.stringify({ error: 'Airtable not configured' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -27,12 +28,10 @@ serve(async (req) => {
     let action: string | null = null;
     let contractId: string | null = null;
     let requestBody: Record<string, unknown> | null = null;
-    let formData: FormData | null = null;
 
     // Check if it's a FormData request (file upload)
     if (contentType.includes('multipart/form-data')) {
       action = req.headers.get('action') || 'upload';
-      formData = await req.formData();
     } else {
       // JSON body
       const body = await req.json();
@@ -43,60 +42,142 @@ serve(async (req) => {
 
     console.log(`Contract API called: action=${action}, id=${contractId}`);
 
-    let apiUrl: string;
-    let method = 'GET';
-    let body: BodyInit | undefined;
-    const headers: HeadersInit = {
-      'Authorization': `Bearer ${apiKey}`,
-    };
-
     switch (action) {
-      case 'upload':
-        apiUrl = `${API_BASE_URL}/contracts/upload`;
-        method = 'POST';
-        if (formData) {
-          body = formData;
-        }
-        break;
-
-      case 'get':
+      case 'get': {
         if (!contractId) {
           return new Response(
             JSON.stringify({ error: 'Contract ID required' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        apiUrl = `${API_BASE_URL}/contracts/${contractId}`;
-        method = 'GET';
-        break;
 
-      case 'mark-reviewed':
-        if (!contractId) {
-          return new Response(
-            JSON.stringify({ error: 'Contract ID required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        apiUrl = `${API_BASE_URL}/contracts/${contractId}/review`;
-        method = 'PATCH';
-        break;
+        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
+        console.log(`Fetching from Airtable: ${airtableUrl}`);
 
-      case 'update-field':
-        if (!contractId) {
-          return new Response(
-            JSON.stringify({ error: 'Contract ID required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        apiUrl = `${API_BASE_URL}/contracts/${contractId}/fields`;
-        method = 'PATCH';
-        headers['Content-Type'] = 'application/json';
-        body = JSON.stringify({
-          field_name: requestBody?.field_name,
-          original_value: requestBody?.original_value,
-          new_value: requestBody?.new_value,
+        const response = await fetch(airtableUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
         });
-        break;
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Airtable error:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch contract from Airtable' }),
+            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const record = await response.json();
+        console.log(`Fetched contract: ${record.id}`);
+
+        // Transform Airtable record to expected format
+        const result = {
+          id: record.id,
+          fields: record.fields,
+          created_time: record.createdTime,
+        };
+
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'mark-reviewed': {
+        if (!contractId) {
+          return new Response(
+            JSON.stringify({ error: 'Contract ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
+        console.log(`Updating status in Airtable: ${airtableUrl}`);
+
+        const response = await fetch(airtableUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fields: {
+              status: 'reviewed',
+              reviewed_at: new Date().toISOString(),
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Airtable error:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to update contract status' }),
+            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'update-field': {
+        if (!contractId) {
+          return new Response(
+            JSON.stringify({ error: 'Contract ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const fieldName = requestBody?.field_name as string;
+        const newValue = requestBody?.new_value;
+
+        if (!fieldName) {
+          return new Response(
+            JSON.stringify({ error: 'Field name required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
+        console.log(`Updating field ${fieldName} in Airtable: ${airtableUrl}`);
+
+        const response = await fetch(airtableUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fields: {
+              [fieldName]: newValue,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Airtable error:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to update field' }),
+            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'upload':
+        // Upload functionality would require additional setup with Airtable attachments
+        return new Response(
+          JSON.stringify({ error: 'Upload not implemented for Airtable' }),
+          { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
 
       default:
         return new Response(
@@ -104,22 +185,6 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
-
-    console.log(`Forwarding to: ${apiUrl} with method: ${method}`);
-
-    const response = await fetch(apiUrl, {
-      method,
-      headers,
-      body,
-    });
-
-    const responseData = await response.text();
-    console.log(`API response status: ${response.status}`);
-
-    return new Response(responseData, {
-      status: response.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Contract API error:', error);
