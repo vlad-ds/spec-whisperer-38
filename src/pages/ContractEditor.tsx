@@ -95,14 +95,37 @@ const ContractEditor = () => {
       await updateField(id, fieldName, originalValue, newValue);
       setSaveStatus('saved');
       
+      // Update original contract to reflect the saved value
+      setOriginalContract(prev => prev ? { ...prev, [fieldName]: newValue } : null);
+      
       if (savedTimeoutRef.current) {
         clearTimeout(savedTimeoutRef.current);
       }
       savedTimeoutRef.current = setTimeout(() => {
         setSaveStatus('idle');
       }, 2000);
-    } catch {
+    } catch (error) {
       setSaveStatus('error');
+      
+      // Revert to original value on error
+      setContract(prev => prev ? { ...prev, [fieldName]: originalValue } : null);
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('INVALID_MULTIPLE_CHOICE_OPTIONS') || errorMessage.includes('select option')) {
+        toast({
+          title: 'Invalid option',
+          description: 'This value is not available. Please choose a different option.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Save failed',
+          description: 'Could not save changes. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   }, [id]);
 
