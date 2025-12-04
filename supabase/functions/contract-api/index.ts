@@ -33,12 +33,18 @@ serve(async (req) => {
 
   try {
     const contentType = req.headers.get('content-type') || '';
+    const url = new URL(req.url);
     let action: string | null = null;
     let contractId: string | null = null;
     let requestBody: Record<string, unknown> | null = null;
 
+    // Check for GET request with query params (for PDF download)
+    if (req.method === 'GET' || url.searchParams.has('action')) {
+      action = url.searchParams.get('action');
+      contractId = url.searchParams.get('id');
+    }
     // Check if it's a FormData request (file upload)
-    if (contentType.includes('multipart/form-data')) {
+    else if (contentType.includes('multipart/form-data')) {
       action = req.headers.get('action') || 'upload';
     } else {
       // JSON body
@@ -124,40 +130,82 @@ serve(async (req) => {
         }
 
         const record = await airtableResponse.json();
-        console.log('Available fields in record:', Object.keys(record.fields || {}));
-        
-        // Look for PDF URL field (stored path to our storage bucket)
         const pdfPath = record.fields?.pdf_url;
         const filename = record.fields?.filename;
-        console.log('PDF path from Airtable:', pdfPath);
         
-        let pdfUrl: string | null = null;
-
-        if (pdfPath && supabase) {
-          // Generate a signed URL for the PDF in our storage bucket
-          console.log(`Generating signed URL for path: ${pdfPath}`);
-          const { data, error } = await supabase.storage
-            .from('contracts')
-            .createSignedUrl(pdfPath, 3600); // 1 hour expiry
-          
-          if (error) {
-            console.error('Error creating signed URL:', error);
-          } else {
-            pdfUrl = data.signedUrl;
-            console.log('Generated signed URL successfully');
-          }
-        } else if (pdfPath) {
-          // If it's already a full URL, use it directly
-          if (pdfPath.startsWith('http')) {
-            pdfUrl = pdfPath;
-          }
-        }
-
         return new Response(JSON.stringify({ 
-          pdfUrl, 
+          pdfPath: pdfPath || null, 
           filename: filename || null
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'download-pdf': {
+        if (!contractId) {
+          return new Response(
+            JSON.stringify({ error: 'Contract ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (!supabase) {
+          return new Response(
+            JSON.stringify({ error: 'Storage not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch PDF path from Airtable
+        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
+        console.log(`Fetching PDF path for download: ${airtableUrl}`);
+
+        const airtableResponse = await fetch(airtableUrl, {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+
+        if (!airtableResponse.ok) {
+          return new Response(
+            JSON.stringify({ error: 'Contract not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const record = await airtableResponse.json();
+        const pdfPath = record.fields?.pdf_url;
+        const filename = record.fields?.filename || 'contract.pdf';
+
+        if (!pdfPath) {
+          return new Response(
+            JSON.stringify({ error: 'PDF not available for this contract' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Downloading PDF from storage: ${pdfPath}`);
+        
+        // Download the PDF from storage
+        const { data: pdfData, error: downloadError } = await supabase.storage
+          .from('contracts')
+          .download(pdfPath);
+
+        if (downloadError || !pdfData) {
+          console.error('PDF download error:', downloadError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to download PDF' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Serving PDF: ${filename}`);
+
+        // Return the PDF with proper headers
+        return new Response(pdfData, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="${filename}"`,
+          },
         });
       }
 

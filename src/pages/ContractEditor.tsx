@@ -38,6 +38,7 @@ import {
   markAsReviewed,
   updateField,
   getPdfUrl,
+  getPdfProxyUrl,
   type ParsedContract,
 } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -53,7 +54,7 @@ const ContractEditor = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [hasPdf, setHasPdf] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   
@@ -96,23 +97,24 @@ const ContractEditor = () => {
     }
   }, [isError, navigate]);
 
-  // Fetch PDF URL
+  // Check if PDF is available
   useEffect(() => {
     if (!id) return;
     
-    const fetchPdfUrl = async () => {
+    const checkPdfAvailable = async () => {
       setIsPdfLoading(true);
       try {
         const result = await getPdfUrl(id);
-        setPdfUrl(result.pdfUrl);
+        setHasPdf(!!result.pdfPath);
       } catch (error) {
-        console.error('Failed to fetch PDF URL:', error);
+        console.error('Failed to check PDF availability:', error);
+        setHasPdf(false);
       } finally {
         setIsPdfLoading(false);
       }
     };
     
-    fetchPdfUrl();
+    checkPdfAvailable();
   }, [id]);
 
   const debouncedSave = useCallback(async (
@@ -247,7 +249,7 @@ const ContractEditor = () => {
           </Button>
           
           <div className="flex items-center gap-3">
-            {pdfUrl ? (
+            {hasPdf ? (
               <>
                 <Button
                   variant="outline"
@@ -262,7 +264,7 @@ const ContractEditor = () => {
                   size="icon"
                   onClick={() => {
                     const link = document.createElement('a');
-                    link.href = pdfUrl;
+                    link.href = getPdfProxyUrl(id!);
                     link.download = contract?.filename || 'contract.pdf';
                     link.click();
                   }}
@@ -419,9 +421,9 @@ const ContractEditor = () => {
               {contract?.filename}
             </SheetTitle>
           </SheetHeader>
-          {pdfUrl && (
+          {hasPdf && id && (
             <iframe
-              src={pdfUrl}
+              src={getPdfProxyUrl(id)}
               className="w-full h-[calc(100vh-80px)]"
               title="PDF Viewer"
             />
