@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link, useLocation } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,10 +13,22 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { FileText, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { deleteContract } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface AirtableRecord {
   id: string;
@@ -125,10 +137,36 @@ const SortableHeader = ({
 const ContractsList = () => {
   const [sortField, setSortField] = useState<SortField>('createdTime');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [contractToDelete, setContractToDelete] = useState<AirtableRecord | null>(null);
+  
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const { data: contracts, isLoading, error } = useQuery({
     queryKey: ['contracts'],
     queryFn: fetchContracts,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteContract(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      toast({
+        title: 'Contract deleted',
+        description: 'The contract has been successfully deleted.',
+      });
+      setDeleteDialogOpen(false);
+      setContractToDelete(null);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Failed to delete contract',
+        variant: 'destructive',
+      });
+    },
   });
 
   const handleSort = (field: SortField) => {
@@ -137,6 +175,18 @@ const ContractsList = () => {
     } else {
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, contract: AirtableRecord) => {
+    e.stopPropagation();
+    setContractToDelete(contract);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (contractToDelete) {
+      deleteMutation.mutate(contractToDelete.id);
     }
   };
 
@@ -300,6 +350,7 @@ const ContractsList = () => {
                       onSort={handleSort}
                     />
                   </TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -310,7 +361,7 @@ const ContractsList = () => {
                     <TableRow 
                       key={contract.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => window.location.href = `/contracts/${contract.id}`}
+                      onClick={() => navigate(`/contracts/${contract.id}`)}
                     >
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {contract.fields.filename || 'Untitled'}
@@ -337,6 +388,16 @@ const ContractsList = () => {
                       <TableCell className="hidden sm:table-cell text-muted-foreground">
                         {formatDate(contract.createdTime)}
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => handleDeleteClick(e, contract)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -345,6 +406,28 @@ const ContractsList = () => {
           </Card>
         )}
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Contract</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{contractToDelete?.fields.filename || 'this contract'}"? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
