@@ -117,11 +117,15 @@ serve(async (req) => {
 
         const record = await airtableResponse.json();
         
-        // Look for PDF attachment field (could be named 'pdf', 'PDF', 'attachment', 'file', etc.)
-        const attachmentFieldNames = ['pdf', 'PDF', 'attachment', 'Attachment', 'file', 'File', 'document', 'Document'];
+        // Log all field names to help identify the attachment field
+        console.log('Available fields in record:', Object.keys(record.fields || {}));
+        
+        // Look for PDF attachment field - check common names and any field that looks like an attachment
+        const attachmentFieldNames = ['pdf', 'PDF', 'attachment', 'Attachment', 'file', 'File', 'document', 'Document', 'contract_pdf', 'Contract PDF', 'source_file', 'Source File'];
         let pdfUrl: string | null = null;
         let pdfFilename: string | null = null;
 
+        // First try common names
         for (const fieldName of attachmentFieldNames) {
           const attachments = record.fields?.[fieldName];
           if (Array.isArray(attachments) && attachments.length > 0) {
@@ -129,6 +133,18 @@ serve(async (req) => {
             pdfFilename = attachments[0].filename;
             console.log(`Found PDF in field '${fieldName}': ${pdfFilename}`);
             break;
+          }
+        }
+        
+        // If not found, scan all fields for attachment-like data
+        if (!pdfUrl) {
+          for (const [key, value] of Object.entries(record.fields || {})) {
+            if (Array.isArray(value) && value.length > 0 && value[0]?.url && value[0]?.filename) {
+              pdfUrl = value[0].url;
+              pdfFilename = value[0].filename;
+              console.log(`Found PDF in field '${key}': ${pdfFilename}`);
+              break;
+            }
           }
         }
 
