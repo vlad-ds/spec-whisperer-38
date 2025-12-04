@@ -197,23 +197,25 @@ const ContractEditor = () => {
     }, 1000);
   }, [contract, originalContract, debouncedSave]);
 
-  const handleMarkReviewed = async () => {
+  const handleToggleReview = async (markReviewed: boolean) => {
     if (!id) return;
     
     setIsMarkingReviewed(true);
     
     try {
-      await markAsReviewed(id);
-      setContract(prev => prev ? { ...prev, status: 'reviewed' } : null);
+      await markAsReviewed(id, markReviewed);
+      setContract(prev => prev ? { ...prev, status: markReviewed ? 'reviewed' : 'under_review' } : null);
       setShowReviewDialog(false);
       toast({
-        title: 'Contract reviewed',
-        description: 'This contract has been marked as reviewed.',
+        title: markReviewed ? 'Contract reviewed' : 'Contract unreviewed',
+        description: markReviewed 
+          ? 'This contract has been marked as reviewed.'
+          : 'This contract has been marked as unreviewed.',
       });
     } catch {
       toast({
         title: 'Error',
-        description: 'Failed to mark as reviewed',
+        description: markReviewed ? 'Failed to mark as reviewed' : 'Failed to mark as unreviewed',
         variant: 'destructive',
       });
     } finally {
@@ -284,9 +286,12 @@ const ContractEditor = () => {
             <SaveIndicator status={saveStatus} />
             
             {isReviewed ? (
-              <Button disabled className="gap-2">
-                <Check className="h-4 w-4" />
-                Reviewed
+              <Button 
+                variant="destructive" 
+                onClick={() => setShowReviewDialog(true)}
+                className="gap-2"
+              >
+                Mark as Unreviewed
               </Button>
             ) : (
               <Button onClick={() => setShowReviewDialog(true)}>
@@ -458,9 +463,11 @@ const ContractEditor = () => {
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mark as Reviewed</DialogTitle>
+            <DialogTitle>{isReviewed ? 'Mark as Unreviewed' : 'Mark as Reviewed'}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to mark this contract as reviewed? This indicates that all extracted data has been verified.
+              {isReviewed 
+                ? 'Are you sure you want to mark this contract as unreviewed? This will indicate that the extracted data needs to be re-verified.'
+                : 'Are you sure you want to mark this contract as reviewed? This indicates that all extracted data has been verified.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -472,7 +479,8 @@ const ContractEditor = () => {
               Cancel
             </Button>
             <Button 
-              onClick={handleMarkReviewed}
+              variant={isReviewed ? 'destructive' : 'default'}
+              onClick={() => handleToggleReview(!isReviewed)}
               disabled={isMarkingReviewed}
             >
               {isMarkingReviewed && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
