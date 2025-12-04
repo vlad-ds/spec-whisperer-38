@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, FileText, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -349,8 +349,8 @@ const ContractEditor = () => {
             </Select>
           </FieldWithCitation>
 
-          {/* Core Dates Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Contract Dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FieldWithCitation
               label="Agreement Date"
               citation={getCitationForField('agreement_date')}
@@ -369,73 +369,85 @@ const ContractEditor = () => {
                 onChange={(date) => handleFieldChange('effectiveDate', date)}
               />
             </FieldWithCitation>
-            <FieldWithCitation
-              label="Expiration Date"
-              citation={getCitationForField('expiration_date')}
-            >
-              <DateField
-                value={contract.expirationDate}
-                onChange={(date) => handleFieldChange('expirationDate', date)}
-              />
-            </FieldWithCitation>
           </div>
 
-          {/* Notice Period → Notice Deadline */}
-          <div className="border border-border rounded-lg p-4 bg-muted/30">
-            <div className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Notice Terms</div>
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+          {/* Key Deadlines Section */}
+          <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5">
+            <div className="text-xs font-medium text-destructive mb-4 uppercase tracking-wide flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Key Deadlines
+            </div>
+            
+            {/* Expiration Date - Primary Deadline */}
+            <div className="mb-4">
               <FieldWithCitation
-                label="Notice Period"
-                citation={getCitationForField('notice_period')}
-              >
-                <Input
-                  value={contract.noticePeriod}
-                  onChange={(e) => handleFieldChange('noticePeriod', e.target.value)}
-                  placeholder="e.g., 90 days prior written notice"
-                />
-              </FieldWithCitation>
-              <div className="hidden md:flex items-center justify-center h-full pt-8">
-                <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <FieldWithCitation
-                label="Notice Deadline"
-                citation={getCitationForField('notice_deadline')}
+                label="Expiration Date"
+                citation={getCitationForField('expiration_date')}
               >
                 <DateField
-                  value={contract.noticeDeadline}
-                  onChange={(date) => handleFieldChange('noticeDeadline', date)}
+                  value={contract.expirationDate}
+                  onChange={(date) => handleFieldChange('expirationDate', date)}
                 />
               </FieldWithCitation>
             </div>
-          </div>
 
-          {/* Renewal Term → First Renewal Date */}
-          <div className="border border-border rounded-lg p-4 bg-muted/30">
-            <div className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Renewal Terms</div>
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
-              <FieldWithCitation
-                label="Renewal Term"
-                citation={getCitationForField('renewal_term')}
-              >
-                <Textarea
-                  value={contract.renewalTerm}
-                  onChange={(e) => handleFieldChange('renewalTerm', e.target.value)}
-                  placeholder="Enter renewal term details..."
-                  rows={3}
-                />
-              </FieldWithCitation>
-              <div className="hidden md:flex items-center justify-center h-full pt-8">
-                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            {/* Notice Period → Notice Deadline */}
+            <div className="border-t border-destructive/20 pt-4 mb-4">
+              <div className="text-xs text-muted-foreground mb-2">Notice Terms</div>
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+                <FieldWithCitation
+                  label="Notice Period"
+                  citation={getCitationForField('notice_period')}
+                >
+                  <Input
+                    value={contract.noticePeriod}
+                    onChange={(e) => handleFieldChange('noticePeriod', e.target.value)}
+                    placeholder="e.g., 90 days prior written notice"
+                  />
+                </FieldWithCitation>
+                <div className="hidden md:flex items-center justify-center h-full pt-8">
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <FieldWithCitation
+                  label="Notice Deadline"
+                  citation={getCitationForField('notice_deadline')}
+                >
+                  <DateField
+                    value={contract.noticeDeadline}
+                    onChange={(date) => handleFieldChange('noticeDeadline', date)}
+                  />
+                </FieldWithCitation>
               </div>
-              <FieldWithCitation
-                label="First Renewal Date"
-                citation={getCitationForField('first_renewal_date')}
-              >
-                <DateField
-                  value={contract.firstRenewalDate}
-                  onChange={(date) => handleFieldChange('firstRenewalDate', date)}
-                />
-              </FieldWithCitation>
+            </div>
+
+            {/* Renewal Term → First Renewal Date */}
+            <div className="border-t border-destructive/20 pt-4">
+              <div className="text-xs text-muted-foreground mb-2">Renewal Terms</div>
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+                <FieldWithCitation
+                  label="Renewal Term"
+                  citation={getCitationForField('renewal_term')}
+                >
+                  <Textarea
+                    value={contract.renewalTerm}
+                    onChange={(e) => handleFieldChange('renewalTerm', e.target.value)}
+                    placeholder="Enter renewal term details..."
+                    rows={3}
+                  />
+                </FieldWithCitation>
+                <div className="hidden md:flex items-center justify-center h-full pt-8">
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <FieldWithCitation
+                  label="First Renewal Date"
+                  citation={getCitationForField('first_renewal_date')}
+                >
+                  <DateField
+                    value={contract.firstRenewalDate}
+                    onChange={(date) => handleFieldChange('firstRenewalDate', date)}
+                  />
+                </FieldWithCitation>
+              </div>
             </div>
           </div>
         </div>
