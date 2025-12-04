@@ -172,6 +172,49 @@ serve(async (req) => {
         });
       }
 
+      case 'delete': {
+        if (!contractId) {
+          return new Response(
+            JSON.stringify({ error: 'Contract ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
+          return new Response(
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Deleting contract ${contractId} via ComplyFlow API...`);
+
+        const deleteResponse = await fetch(`https://complyflow-production.up.railway.app/contracts/${contractId}`, {
+          method: 'DELETE',
+          headers: {
+            'x-api-key': complyflowApiKey,
+          },
+        });
+
+        if (!deleteResponse.ok) {
+          const errorText = await deleteResponse.text();
+          console.error('ComplyFlow API delete error:', deleteResponse.status, errorText);
+          return new Response(
+            JSON.stringify({ error: `Delete failed: ${errorText}` }),
+            { status: deleteResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const deleteResult = await deleteResponse.json();
+        console.log('Delete successful:', deleteResult);
+
+        return new Response(JSON.stringify({ success: true, id: contractId }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'upload': {
         const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
         if (!complyflowApiKey) {

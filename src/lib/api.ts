@@ -157,3 +157,17 @@ export const updateField = async (
     throw new Error('Failed to update field');
   }
 };
+
+export const deleteContract = async (id: string): Promise<void> => {
+  const { data, error } = await supabase.functions.invoke('contract-api', {
+    body: { action: 'delete', id },
+  });
+
+  if (error) {
+    throw new Error('Failed to delete contract');
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+};
