@@ -2,3 +2,6 @@ project_id = "yipydhvzzgfmlmalflqw"
 
 [functions.contract-api]
 verify_jwt = false
+
+[functions.airtable-contracts]
+verify_jwt = false

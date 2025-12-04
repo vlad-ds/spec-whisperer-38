@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Upload from "./pages/Upload";
+import ContractsList from "./pages/ContractsList";
 import ContractEditor from "./pages/ContractEditor";
 import NotFound from "./pages/NotFound";
 
@@ -17,6 +18,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Upload />} />
+          <Route path="/contracts" element={<ContractsList />} />
           <Route path="/contracts/:id" element={<ContractEditor />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
