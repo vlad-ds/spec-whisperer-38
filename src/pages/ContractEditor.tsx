@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PartyInput } from '@/components/PartyInput';
 import { DateField } from '@/components/DateField';
@@ -49,6 +55,7 @@ const ContractEditor = () => {
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -241,15 +248,29 @@ const ContractEditor = () => {
           
           <div className="flex items-center gap-3">
             {pdfUrl ? (
-              <Button
-                variant="outline"
-                onClick={() => window.open(pdfUrl, '_blank')}
-                className="gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                View PDF
-                <ExternalLink className="h-3 w-3" />
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPdfViewer(true)}
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  View PDF
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = pdfUrl;
+                    link.download = contract?.filename || 'contract.pdf';
+                    link.click();
+                  }}
+                  title="Download PDF"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </>
             ) : isPdfLoading ? (
               <Button variant="outline" disabled className="gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -388,6 +409,25 @@ const ContractEditor = () => {
           </Card>
         </div>
       </main>
+
+      {/* PDF Viewer Sheet */}
+      <Sheet open={showPdfViewer} onOpenChange={setShowPdfViewer}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl p-0">
+          <SheetHeader className="p-4 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {contract?.filename}
+            </SheetTitle>
+          </SheetHeader>
+          {pdfUrl && (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-[calc(100vh-80px)]"
+              title="PDF Viewer"
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
         <DialogContent>
