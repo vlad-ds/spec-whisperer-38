@@ -358,6 +358,13 @@ const ContractEditor = () => {
                 onChange={(date) => handleFieldChange('noticeDeadline', date)}
               />
             </Card>
+            <Card className="p-6">
+              <DateField
+                label="First Renewal Date"
+                value={contract.firstRenewalDate}
+                onChange={(date) => handleFieldChange('firstRenewalDate', date)}
+              />
+            </Card>
           </div>
 
           {/* Text Fields */}
