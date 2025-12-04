@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Loader2, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -262,15 +262,10 @@ const ContractEditor = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = getPdfProxyUrl(id!);
-                    link.download = contract?.filename || 'contract.pdf';
-                    link.click();
-                  }}
-                  title="Download PDF"
+                  onClick={() => window.open(getPdfProxyUrl(id!), '_blank')}
+                  title="Open PDF in new tab"
                 >
-                  <Download className="h-4 w-4" />
+                  <ExternalLink className="h-4 w-4" />
                 </Button>
               </>
             ) : isPdfLoading ? (
