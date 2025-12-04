@@ -172,12 +172,69 @@ serve(async (req) => {
         });
       }
 
-      case 'upload':
-        // Upload functionality would require additional setup with Airtable attachments
-        return new Response(
-          JSON.stringify({ error: 'Upload not implemented for Airtable' }),
-          { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      case 'upload': {
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
+          return new Response(
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get the form data from the original request
+        const formData = await req.formData();
+        const file = formData.get('file');
+        
+        if (!file) {
+          return new Response(
+            JSON.stringify({ error: 'No file provided' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Uploading to ComplyFlow API...');
+        
+        // Forward to ComplyFlow API
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file);
+
+        const uploadResponse = await fetch('https://complyflow-production.up.railway.app/contracts/upload', {
+          method: 'POST',
+          headers: {
+            'x-api-key': complyflowApiKey,
+          },
+          body: uploadFormData,
+        });
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('ComplyFlow API error:', uploadResponse.status, errorText);
+          return new Response(
+            JSON.stringify({ error: `Upload failed: ${errorText}` }),
+            { status: uploadResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('Upload successful, contract_id:', uploadResult.contract_id);
+
+        // Transform response to match expected ContractRecord format
+        const result = {
+          id: uploadResult.contract_id,
+          fields: {
+            filename: uploadResult.filename,
+            ...uploadResult.extraction,
+            ...uploadResult.computed_dates,
+            status: uploadResult.status || 'under_review',
+          },
+          created_time: uploadResult.created_at,
+        };
+
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       default:
         return new Response(
