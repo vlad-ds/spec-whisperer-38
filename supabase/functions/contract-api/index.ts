@@ -190,13 +190,17 @@ serve(async (req) => {
         }
 
         console.log(`Deleting contract ${contractId} via ComplyFlow API...`);
+        const deleteUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}`;
+        console.log('Delete URL:', deleteUrl);
 
-        const deleteResponse = await fetch(`https://complyflow-production.up.railway.app/contracts/${contractId}`, {
+        const deleteResponse = await fetch(deleteUrl, {
           method: 'DELETE',
           headers: {
-            'x-api-key': complyflowApiKey,
+            'X-API-Key': complyflowApiKey,
           },
         });
+
+        console.log('Delete response status:', deleteResponse.status);
 
         if (!deleteResponse.ok) {
           const errorText = await deleteResponse.text();
