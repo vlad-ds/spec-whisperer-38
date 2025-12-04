@@ -166,14 +166,20 @@ export const deleteContract = async (id: string): Promise<void> => {
   }
 };
 
-export const getPdfUrl = async (id: string): Promise<{ pdfUrl: string | null; filename: string | null }> => {
+export const getPdfUrl = async (id: string): Promise<{ pdfPath: string | null; filename: string | null }> => {
   const { data, error } = await supabase.functions.invoke('contract-api', {
     body: { action: 'get-pdf-url', id },
   });
 
   if (error) {
-    throw new Error('Failed to fetch PDF URL');
+    throw new Error('Failed to fetch PDF info');
   }
 
   return data;
+};
+
+// Get the proxy URL for viewing/downloading PDFs (avoids browser extension blocking)
+export const getPdfProxyUrl = (id: string): string => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/contract-api?action=download-pdf&id=${id}`;
 };
