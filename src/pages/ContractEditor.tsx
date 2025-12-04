@@ -31,10 +31,10 @@ import {
   parseContract,
   markAsReviewed,
   updateField,
-  CONTRACT_TYPES,
   type ParsedContract,
 } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useAirtableSchema, DEFAULT_CONTRACT_TYPES } from '@/hooks/useAirtableSchema';
 
 const ContractEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +49,10 @@ const ContractEditor = () => {
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch schema for select field options (cached in localStorage for 24h)
+  const { data: schemaData } = useAirtableSchema();
+  const contractTypes = schemaData?.selectFields?.contract_type ?? DEFAULT_CONTRACT_TYPES;
 
   const { data, isLoading: loading, isError } = useQuery({
     queryKey: ['contract', id],
@@ -266,7 +270,7 @@ const ContractEditor = () => {
                 <SelectValue placeholder="Select contract type" />
               </SelectTrigger>
               <SelectContent>
-                {CONTRACT_TYPES.map((type) => (
+                {contractTypes.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type.split('-').map(word => 
                       word.charAt(0).toUpperCase() + word.slice(1)

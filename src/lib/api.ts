@@ -40,35 +40,6 @@ export interface ParsedContract {
   createdAt: Date;
 }
 
-export const CONTRACT_TYPES = [
-  "affiliate-license-licensor",
-  "affiliate-license-licensee",
-  "co-branding",
-  "collaboration",
-  "development",
-  "distributor",
-  "endorsement",
-  "franchise",
-  "hosting",
-  "ip-license-licensor",
-  "ip-license-licensee",
-  "joint-venture",
-  "license",
-  "maintenance",
-  "manufacturing",
-  "marketing",
-  "non-compete",
-  "outsourcing",
-  "promotion",
-  "reseller",
-  "services",
-  "sponsorship",
-  "supply",
-  "strategic-alliance",
-  "transportation",
-  "other"
-] as const;
-
 export const parseContract = (record: ContractRecord): ParsedContract => ({
   id: record.id,
   filename: record.fields.filename,

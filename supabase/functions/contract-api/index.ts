@@ -43,6 +43,51 @@ serve(async (req) => {
     console.log(`Contract API called: action=${action}, id=${contractId}`);
 
     switch (action) {
+      case 'get-schema': {
+        // Fetch Airtable table schema to get valid select options
+        const schemaUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`;
+        console.log('Fetching Airtable schema...');
+
+        const schemaResponse = await fetch(schemaUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+          },
+        });
+
+        if (!schemaResponse.ok) {
+          const error = await schemaResponse.text();
+          console.error('Airtable schema error:', schemaResponse.status, error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch schema' }),
+            { status: schemaResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const schemaData = await schemaResponse.json();
+        const table = schemaData.tables?.find((t: { name: string }) => t.name === tableName);
+        
+        if (!table) {
+          return new Response(
+            JSON.stringify({ error: 'Table not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Extract select field options
+        const selectFields: Record<string, string[]> = {};
+        for (const field of table.fields || []) {
+          if (field.type === 'singleSelect' && field.options?.choices) {
+            selectFields[field.name] = field.options.choices.map((c: { name: string }) => c.name);
+          }
+        }
+
+        console.log('Schema fetched, select fields:', Object.keys(selectFields));
+
+        return new Response(JSON.stringify({ selectFields }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'get': {
         if (!contractId) {
           return new Response(
