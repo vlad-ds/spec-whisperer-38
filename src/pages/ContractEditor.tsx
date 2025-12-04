@@ -57,8 +57,9 @@ const ContractEditor = () => {
       return parseContract(record);
     },
     enabled: !!id,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 30 * 1000, // Consider stale after 30 seconds
     gcTime: 10 * 60 * 1000,
+    refetchOnMount: 'always', // Always refetch when mounting to get fresh data
   });
 
   // Sync query data to local state
