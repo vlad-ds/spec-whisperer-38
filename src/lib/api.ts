@@ -1,5 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://complyflow-production.up.railway.app';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ContractRecord {
   id: string;
@@ -89,47 +88,42 @@ export const parseContract = (record: ContractRecord): ParsedContract => ({
   createdAt: new Date(record.created_time),
 });
 
-const getHeaders = () => ({
-  'X-API-Key': API_KEY,
-});
-
 export const uploadContract = async (file: File): Promise<ContractRecord> => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_URL}/contracts/upload`, {
-    method: 'POST',
-    headers: getHeaders(),
+  const { data, error } = await supabase.functions.invoke('contract-api', {
     body: formData,
+    headers: {
+      'action': 'upload',
+    },
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
-    throw new Error(error.detail || getErrorMessage(response.status));
+  if (error) {
+    throw new Error(error.message || 'Upload failed');
   }
 
-  return response.json();
+  return data;
 };
 
 export const getContract = async (id: string): Promise<ContractRecord> => {
-  const response = await fetch(`${API_URL}/contracts/${id}`, {
-    headers: getHeaders(),
+  const { data, error } = await supabase.functions.invoke('contract-api', {
+    body: { action: 'get', id },
   });
 
-  if (!response.ok) {
+  if (error) {
     throw new Error('Failed to fetch contract');
   }
 
-  return response.json();
+  return data;
 };
 
 export const markAsReviewed = async (id: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/contracts/${id}/review`, {
-    method: 'PATCH',
-    headers: getHeaders(),
+  const { error } = await supabase.functions.invoke('contract-api', {
+    body: { action: 'mark-reviewed', id },
   });
 
-  if (!response.ok) {
+  if (error) {
     throw new Error('Failed to mark as reviewed');
   }
 };
@@ -144,37 +138,17 @@ export const updateField = async (
     return;
   }
 
-  const response = await fetch(`${API_URL}/contracts/${contractId}/fields`, {
-    method: 'PATCH',
-    headers: {
-      ...getHeaders(),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  const { error } = await supabase.functions.invoke('contract-api', {
+    body: {
+      action: 'update-field',
+      id: contractId,
       field_name: fieldName,
       original_value: originalValue,
       new_value: newValue,
-    }),
+    },
   });
 
-  if (!response.ok) {
+  if (error) {
     throw new Error('Failed to update field');
-  }
-};
-
-const getErrorMessage = (status: number): string => {
-  switch (status) {
-    case 400:
-      return 'Invalid file. Please upload a PDF.';
-    case 401:
-      return 'Unauthorized. Check API key.';
-    case 413:
-      return 'File too large. Maximum size is 10MB.';
-    case 502:
-      return 'AI extraction failed. Please try again.';
-    case 504:
-      return 'Request timed out. Please try again.';
-    default:
-      return 'An unexpected error occurred.';
   }
 };
