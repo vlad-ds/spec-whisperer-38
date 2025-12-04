@@ -94,13 +94,13 @@ export const getContract = async (id: string): Promise<ContractRecord> => {
   return data;
 };
 
-export const markAsReviewed = async (id: string): Promise<void> => {
+export const markAsReviewed = async (id: string, reviewed: boolean = true): Promise<void> => {
   const { error } = await supabase.functions.invoke('contract-api', {
-    body: { action: 'mark-reviewed', id },
+    body: { action: 'mark-reviewed', id, reviewed },
   });
 
   if (error) {
-    throw new Error('Failed to mark as reviewed');
+    throw new Error(reviewed ? 'Failed to mark as reviewed' : 'Failed to mark as unreviewed');
   }
 };
 
