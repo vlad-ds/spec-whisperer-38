@@ -159,6 +159,7 @@ serve(async (req) => {
         }
 
         const fieldName = requestBody?.field_name as string;
+        const originalValue = requestBody?.original_value;
         const newValue = requestBody?.new_value;
 
         if (!fieldName) {
@@ -178,7 +179,9 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            [fieldName]: newValue,
+            field_name: fieldName,
+            original_value: originalValue,
+            new_value: newValue,
           }),
         });
 
