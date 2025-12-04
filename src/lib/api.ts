@@ -103,6 +103,11 @@ export const uploadContract = async (file: File): Promise<ContractRecord> => {
     throw new Error(error.message || 'Upload failed');
   }
 
+  // Check if the response contains an error (e.g., 501 Not Implemented)
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
   return data;
 };
 
