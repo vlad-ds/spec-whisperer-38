@@ -161,7 +161,7 @@ export const updateField = async (
   // Convert camelCase to snake_case for Airtable
   const airtableFieldName = fieldNameMap[fieldName] || fieldName;
 
-  const { error } = await supabase.functions.invoke('contract-api', {
+  const { data, error } = await supabase.functions.invoke('contract-api', {
     body: {
       action: 'update-field',
       id: contractId,
@@ -172,7 +172,12 @@ export const updateField = async (
   });
 
   if (error) {
-    throw new Error('Failed to update field');
+    throw new Error(error.message || 'Failed to update field');
+  }
+
+  // Check for API error in response
+  if (data?.error) {
+    throw new Error(data.error);
   }
 };
 
