@@ -132,10 +132,13 @@ export const updateField = async (
   // Convert camelCase to snake_case for Airtable
   const airtableFieldName = fieldNameMap[fieldName] || fieldName;
 
-  // Format date values to ISO string (YYYY-MM-DD) for Airtable
+  // Format date values to YYYY-MM-DD for Airtable (using local date to avoid timezone shift)
   let formattedValue = newValue;
   if (newValue instanceof Date) {
-    formattedValue = newValue.toISOString().split('T')[0];
+    const year = newValue.getFullYear();
+    const month = String(newValue.getMonth() + 1).padStart(2, '0');
+    const day = String(newValue.getDate()).padStart(2, '0');
+    formattedValue = `${year}-${month}-${day}`;
   } else if (newValue === null && airtableFieldName.includes('date')) {
     formattedValue = null;
   }
