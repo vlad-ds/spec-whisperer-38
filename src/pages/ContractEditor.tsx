@@ -313,7 +313,6 @@ const ContractEditor = () => {
           <FieldWithCitation
             label="Parties"
             citation={getCitationForField('parties')}
-            currentValue={JSON.stringify(contract.parties)}
           >
             <PartyInput
               parties={contract.parties}
@@ -325,7 +324,6 @@ const ContractEditor = () => {
           <FieldWithCitation
             label="Contract Type"
             citation={getCitationForField('contract_type')}
-            currentValue={contract.contractType}
           >
             <Select
               value={contract.contractType}
@@ -351,7 +349,6 @@ const ContractEditor = () => {
             <FieldWithCitation
               label="Agreement Date"
               citation={getCitationForField('agreement_date')}
-              currentValue={contract.agreementDate?.toISOString().split('T')[0] || ''}
             >
               <DateField
                 value={contract.agreementDate}
@@ -361,7 +358,6 @@ const ContractEditor = () => {
             <FieldWithCitation
               label="Effective Date"
               citation={getCitationForField('effective_date')}
-              currentValue={contract.effectiveDate?.toISOString().split('T')[0] || ''}
             >
               <DateField
                 value={contract.effectiveDate}
@@ -371,7 +367,6 @@ const ContractEditor = () => {
             <FieldWithCitation
               label="Expiration Date"
               citation={getCitationForField('expiration_date')}
-              currentValue={contract.expirationDate?.toISOString().split('T')[0] || ''}
             >
               <DateField
                 value={contract.expirationDate}
@@ -381,7 +376,6 @@ const ContractEditor = () => {
             <FieldWithCitation
               label="Notice Deadline"
               citation={getCitationForField('notice_deadline')}
-              currentValue={contract.noticeDeadline?.toISOString().split('T')[0] || ''}
             >
               <DateField
                 value={contract.noticeDeadline}
@@ -391,7 +385,6 @@ const ContractEditor = () => {
             <FieldWithCitation
               label="First Renewal Date"
               citation={getCitationForField('first_renewal_date')}
-              currentValue={contract.firstRenewalDate?.toISOString().split('T')[0] || ''}
             >
               <DateField
                 value={contract.firstRenewalDate}
@@ -404,7 +397,6 @@ const ContractEditor = () => {
           <FieldWithCitation
             label="Governing Law"
             citation={getCitationForField('governing_law')}
-            currentValue={contract.governingLaw}
           >
             <Input
               value={contract.governingLaw}
@@ -416,7 +408,6 @@ const ContractEditor = () => {
           <FieldWithCitation
             label="Notice Period"
             citation={getCitationForField('notice_period')}
-            currentValue={contract.noticePeriod}
           >
             <Input
               value={contract.noticePeriod}
@@ -428,7 +419,6 @@ const ContractEditor = () => {
           <FieldWithCitation
             label="Renewal Term"
             citation={getCitationForField('renewal_term')}
-            currentValue={contract.renewalTerm}
           >
             <Textarea
               value={contract.renewalTerm}
