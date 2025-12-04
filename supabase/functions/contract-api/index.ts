@@ -199,13 +199,34 @@ serve(async (req) => {
         const uploadFormData = new FormData();
         uploadFormData.append('file', file);
 
-        const uploadResponse = await fetch('https://complyflow-production.up.railway.app/contracts/upload', {
-          method: 'POST',
-          headers: {
-            'x-api-key': complyflowApiKey,
-          },
-          body: uploadFormData,
-        });
+        // Set a 120 second timeout for LLM processing
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+        let uploadResponse: Response;
+        try {
+          uploadResponse = await fetch('https://complyflow-production.up.railway.app/contracts/upload', {
+            method: 'POST',
+            headers: {
+              'x-api-key': complyflowApiKey,
+            },
+            body: uploadFormData,
+            signal: controller.signal,
+          });
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            console.error('ComplyFlow API request timed out after 120s');
+            return new Response(
+              JSON.stringify({ error: 'Upload timed out - the PDF processing is taking longer than expected. Please try again.' }),
+              { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          throw fetchError;
+        }
+        clearTimeout(timeoutId);
+        
+        console.log('ComplyFlow API responded with status:', uploadResponse.status);
 
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
