@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,8 @@ serve(async (req) => {
   const apiKey = Deno.env.get('AIRTABLE_API_KEY');
   const baseId = Deno.env.get('AIRTABLE_BASE_ID');
   const tableName = Deno.env.get('AIRTABLE_TABLE_NAME');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!apiKey || !baseId || !tableName) {
     console.error('Airtable configuration missing');
@@ -22,6 +25,11 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
+  // Create Supabase client for storage operations
+  const supabase = supabaseUrl && supabaseServiceKey 
+    ? createClient(supabaseUrl, supabaseServiceKey)
+    : null;
 
   try {
     const contentType = req.headers.get('content-type') || '';
@@ -96,7 +104,7 @@ serve(async (req) => {
           );
         }
 
-        // Fetch directly from Airtable to get attachment URLs
+        // Fetch from Airtable to get PDF URL field
         const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
         console.log(`Fetching PDF URL from Airtable: ${airtableUrl}`);
 
@@ -116,41 +124,37 @@ serve(async (req) => {
         }
 
         const record = await airtableResponse.json();
-        
-        // Log all field names to help identify the attachment field
         console.log('Available fields in record:', Object.keys(record.fields || {}));
         
-        // Look for PDF attachment field - check common names and any field that looks like an attachment
-        const attachmentFieldNames = ['pdf', 'PDF', 'attachment', 'Attachment', 'file', 'File', 'document', 'Document', 'contract_pdf', 'Contract PDF', 'source_file', 'Source File'];
-        let pdfUrl: string | null = null;
-        let pdfFilename: string | null = null;
-
-        // First try common names
-        for (const fieldName of attachmentFieldNames) {
-          const attachments = record.fields?.[fieldName];
-          if (Array.isArray(attachments) && attachments.length > 0) {
-            pdfUrl = attachments[0].url;
-            pdfFilename = attachments[0].filename;
-            console.log(`Found PDF in field '${fieldName}': ${pdfFilename}`);
-            break;
-          }
-        }
+        // Look for PDF URL field (stored path to our storage bucket)
+        const pdfPath = record.fields?.['PDF URL'] || record.fields?.['pdf_url'];
+        const filename = record.fields?.filename;
         
-        // If not found, scan all fields for attachment-like data
-        if (!pdfUrl) {
-          for (const [key, value] of Object.entries(record.fields || {})) {
-            if (Array.isArray(value) && value.length > 0 && value[0]?.url && value[0]?.filename) {
-              pdfUrl = value[0].url;
-              pdfFilename = value[0].filename;
-              console.log(`Found PDF in field '${key}': ${pdfFilename}`);
-              break;
-            }
+        let pdfUrl: string | null = null;
+
+        if (pdfPath && supabase) {
+          // Generate a signed URL for the PDF in our storage bucket
+          console.log(`Generating signed URL for path: ${pdfPath}`);
+          const { data, error } = await supabase.storage
+            .from('contracts')
+            .createSignedUrl(pdfPath, 3600); // 1 hour expiry
+          
+          if (error) {
+            console.error('Error creating signed URL:', error);
+          } else {
+            pdfUrl = data.signedUrl;
+            console.log('Generated signed URL successfully');
+          }
+        } else if (pdfPath) {
+          // If it's already a full URL, use it directly
+          if (pdfPath.startsWith('http')) {
+            pdfUrl = pdfPath;
           }
         }
 
         return new Response(JSON.stringify({ 
           pdfUrl, 
-          filename: pdfFilename || record.fields?.filename 
+          filename: filename || null
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -374,9 +378,17 @@ serve(async (req) => {
           );
         }
 
+        if (!supabase) {
+          console.error('Supabase not configured for storage');
+          return new Response(
+            JSON.stringify({ error: 'Storage not configured' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Get the form data from the original request
         const formData = await req.formData();
-        const file = formData.get('file');
+        const file = formData.get('file') as File;
         
         if (!file) {
           return new Response(
@@ -385,9 +397,34 @@ serve(async (req) => {
           );
         }
 
-        console.log('Uploading to ComplyFlow API...');
+        const filename = file.name;
+        const timestamp = Date.now();
+        const storagePath = `${timestamp}_${filename}`;
+
+        console.log(`Uploading file to storage: ${storagePath}`);
+
+        // Step 1: Upload PDF to Supabase storage
+        const fileBuffer = await file.arrayBuffer();
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('contracts')
+          .upload(storagePath, fileBuffer, {
+            contentType: 'application/pdf',
+            upsert: false,
+          });
+
+        if (storageError) {
+          console.error('Storage upload error:', storageError);
+          return new Response(
+            JSON.stringify({ error: `Storage upload failed: ${storageError.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('File uploaded to storage:', storageData.path);
+
+        // Step 2: Forward to ComplyFlow API for processing
+        console.log('Uploading to ComplyFlow API for extraction...');
         
-        // Forward to ComplyFlow API
         const uploadFormData = new FormData();
         uploadFormData.append('file', file);
 
@@ -431,6 +468,31 @@ serve(async (req) => {
 
         const uploadResult = await uploadResponse.json();
         console.log('Upload successful, contract_id:', uploadResult.contract_id);
+
+        // Step 3: Update Airtable with the PDF storage path
+        const airtableUpdateUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${uploadResult.contract_id}`;
+        console.log(`Updating Airtable with PDF URL: ${airtableUpdateUrl}`);
+
+        const airtableUpdateResponse = await fetch(airtableUpdateUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fields: {
+              'PDF URL': storagePath,
+            },
+          }),
+        });
+
+        if (!airtableUpdateResponse.ok) {
+          const error = await airtableUpdateResponse.text();
+          console.error('Airtable update error:', airtableUpdateResponse.status, error);
+          // Don't fail the upload, just log the error
+        } else {
+          console.log('Airtable updated with PDF URL');
+        }
 
         // Transform response to match expected ContractRecord format
         const result = {
