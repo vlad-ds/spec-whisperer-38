@@ -147,6 +147,8 @@ const ContractsList = () => {
   const { data: contracts, isLoading, error } = useQuery({
     queryKey: ['contracts'],
     queryFn: fetchContracts,
+    staleTime: 30 * 1000, // Consider stale after 30 seconds
+    refetchOnMount: 'always', // Always refetch when navigating to this page
   });
 
   const deleteMutation = useMutation({
