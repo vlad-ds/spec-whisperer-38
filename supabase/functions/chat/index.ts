@@ -44,6 +44,7 @@ serve(async (req) => {
     const data = await response.json();
     console.log("Regwatch response received with", data.sources?.length || 0, "sources");
     console.log("Rewritten query:", data.rewritten_query);
+    console.log("Sample source fields:", data.sources?.[0] ? Object.keys(data.sources[0]) : "no sources");
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
