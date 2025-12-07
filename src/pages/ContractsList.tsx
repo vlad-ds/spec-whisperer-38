@@ -259,6 +259,8 @@ const ContractsList = () => {
           <nav className="flex gap-4">
             <NavItem to="/">Upload</NavItem>
             <NavItem to="/contracts">Contracts</NavItem>
+            <NavItem to="/regulatory-digest">Digest</NavItem>
+            <NavItem to="/chat">Chat</NavItem>
           </nav>
         </div>
       </header>
