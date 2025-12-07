@@ -161,8 +161,8 @@ const RegulatoryDigest = () => {
 
         {reports && reports.length > 0 && (
           <div className="space-y-4">
-            {reports.map((report, index) => (
-              <ReportCard key={`${report.period_start}-${report.period_end}`} report={report} defaultOpen={index === 0} />
+            {reports.map((report) => (
+              <ReportCard key={`${report.period_start}-${report.period_end}`} report={report} />
             ))}
           </div>
         )}
@@ -171,8 +171,8 @@ const RegulatoryDigest = () => {
   );
 };
 
-const ReportCard = ({ report, defaultOpen = false }: { report: WeeklySummaryResponse; defaultOpen?: boolean }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+const ReportCard = ({ report }: { report: WeeklySummaryResponse }) => {
+  const [isOpen, setIsOpen] = useState(false);
 
   const materialDocs = report.documents
     ?.filter((d) => d.is_material)
