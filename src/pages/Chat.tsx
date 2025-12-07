@@ -130,7 +130,7 @@ const Chat = () => {
               {activeConversation?.title || 'ComplyFlow Assistant'}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Powered by Gemini Flash
+              Powered by GPT-5 Mini
             </p>
           </div>
 
