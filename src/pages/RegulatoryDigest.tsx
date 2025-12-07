@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
-import { ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, BarChart3, Inbox } from "lucide-react";
+import { ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, BarChart3, Inbox, ChevronDown, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface DocumentSummary {
   celex: string;
@@ -49,16 +52,22 @@ const relevanceColors: Record<string, string> = {
   none: "bg-muted",
 };
 
-const fetchWeeklySummary = async (): Promise<WeeklySummaryResponse> => {
+const fetchWeeklySummary = async (): Promise<WeeklySummaryResponse[]> => {
   const { data, error } = await supabase.functions.invoke("regulatory-digest");
   if (error) throw new Error(error.message);
   if (data.error) throw new Error(data.error);
-  return data;
+  // Wrap single response in array for future multi-report support
+  return data.total_documents > 0 ? [data] : [];
 };
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+};
+
+const formatShortDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
 const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) => {
@@ -78,19 +87,18 @@ const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) =>
   );
 };
 
+const handlePdfDownload = () => {
+  toast.error("PDF export is currently unavailable", {
+    description: "The backend PDF generation service is not configured.",
+  });
+};
+
 const RegulatoryDigest = () => {
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
+  const { data: reports, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["regulatory-digest"],
     queryFn: fetchWeeklySummary,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
-
-  const materialDocs = data?.documents
-    ?.filter((d) => d.is_material)
-    .sort((a, b) => {
-      const order = { high: 0, medium: 1, low: 2, none: 3 };
-      return order[a.relevance] - order[b.relevance];
-    }) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,17 +116,13 @@ const RegulatoryDigest = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground tracking-tight">
-              Weekly Regulatory Digest
-            </h2>
-          {data && data.total_documents > 0 && (
-              <p className="text-muted-foreground mt-1">
-                {formatDate(data.period_start)} — {formatDate(data.period_end)}
-              </p>
-            )}
-          </div>
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-foreground tracking-tight">
+            Weekly Regulatory Digest
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Regulatory updates sorted by most recent
+          </p>
         </div>
 
         {isLoading && <DigestSkeleton />}
@@ -139,7 +143,7 @@ const RegulatoryDigest = () => {
           </Card>
         )}
 
-        {data && data.total_documents === 0 && (
+        {reports && reports.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Inbox className="h-16 w-16 text-muted-foreground/50 mb-6" />
@@ -155,64 +159,85 @@ const RegulatoryDigest = () => {
           </Card>
         )}
 
-        {data && data.total_documents > 0 && (
-          <>
-            {/* Summary Stats Bar */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <Card>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{data.total_documents}</p>
-                    <p className="text-sm text-muted-foreground">Total Analyzed</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-destructive/10">
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{data.material_documents}</p>
-                    <p className="text-sm text-muted-foreground">Material</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="col-span-2">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">By Topic</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(data.documents_by_topic).map(([topic, count]) => (
-                      <Badge
-                        key={topic}
-                        className={cn("text-xs", topicColors[topic] || topicColors.default)}
-                      >
-                        {topic}: {count}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+        {reports && reports.length > 0 && (
+          <div className="space-y-4">
+            {reports.map((report, index) => (
+              <ReportCard key={`${report.period_start}-${report.period_end}`} report={report} defaultOpen={index === 0} />
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
 
+const ReportCard = ({ report, defaultOpen = false }: { report: WeeklySummaryResponse; defaultOpen?: boolean }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const materialDocs = report.documents
+    ?.filter((d) => d.is_material)
+    .sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2, none: 3 };
+      return order[a.relevance] - order[b.relevance];
+    }) || [];
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        {/* Collapsed Header - Always Visible */}
+        <div className="flex items-center justify-between p-4 gap-4">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-4 flex-1 text-left hover:bg-muted/50 -m-2 p-2 rounded-lg transition-colors">
+              <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h3 className="font-semibold text-foreground">
+                    {formatShortDate(report.period_start)} — {formatShortDate(report.period_end)}
+                  </h3>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <span>{report.total_documents} docs</span>
+                    <span className="text-destructive font-medium">
+                      {report.material_documents} material
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {Object.entries(report.documents_by_topic).map(([topic, count]) => (
+                    <Badge
+                      key={topic}
+                      variant="secondary"
+                      className={cn("text-xs", topicColors[topic] || topicColors.default)}
+                    >
+                      {topic}: {count}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </button>
+          </CollapsibleTrigger>
+          
+          <Button onClick={handlePdfDownload} size="sm" className="gap-2 shrink-0">
+            <Download className="h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
+
+        {/* Expanded Content */}
+        <CollapsibleContent>
+          <div className="border-t border-border px-6 py-6 space-y-6">
             {/* Executive Summary */}
-            <Card className="mb-8 bg-muted/30 border-primary/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
+            <Card className="bg-muted/30 border-primary/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Calendar className="h-4 w-4" />
                   Executive Summary
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm dark:prose-invert max-w-none">
-                  {data.executive_summary.split("\n\n").map((paragraph, i) => (
-                    <p key={i} className="text-foreground leading-relaxed mb-4 last:mb-0">
+                  {report.executive_summary.split("\n\n").map((paragraph, i) => (
+                    <p key={i} className="text-foreground leading-relaxed mb-3 last:mb-0 text-sm">
                       {paragraph}
                     </p>
                   ))}
@@ -223,26 +248,26 @@ const RegulatoryDigest = () => {
             {/* Material Documents */}
             {materialDocs.length > 0 && (
               <section>
-                <h3 className="text-xl font-semibold mb-4">Material Documents</h3>
-                <div className="space-y-4">
+                <h4 className="text-base font-semibold mb-3">Material Documents</h4>
+                <div className="space-y-3">
                   {materialDocs.map((doc) => (
                     <DocumentCard key={doc.celex} document={doc} />
                   ))}
                 </div>
               </section>
             )}
-          </>
-        )}
-      </main>
-    </div>
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 };
 
 const DocumentCard = ({ document }: { document: DocumentSummary }) => {
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex flex-wrap items-start gap-3 mb-3">
+    <Card className="bg-card">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap items-start gap-2 mb-2">
           <Badge className={cn("text-xs", topicColors[document.topic] || topicColors.default)}>
             {document.topic}
           </Badge>
@@ -251,33 +276,33 @@ const DocumentCard = ({ document }: { document: DocumentSummary }) => {
               className={cn("h-2 w-2 rounded-full", relevanceColors[document.relevance])}
             />
             <span className="text-xs text-muted-foreground capitalize">
-              {document.relevance} relevance
+              {document.relevance}
             </span>
           </div>
         </div>
 
-        <h4 className="font-semibold text-foreground mb-2">{document.title}</h4>
-        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{document.summary}</p>
+        <h5 className="font-medium text-foreground text-sm mb-2">{document.title}</h5>
+        <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{document.summary}</p>
 
         {document.impact && (
-          <div className="bg-muted/50 rounded-lg p-3 mb-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Impact on BIT Capital</p>
-            <p className="text-sm text-foreground">{document.impact}</p>
+          <div className="bg-muted/50 rounded-md p-2 mb-2">
+            <p className="text-xs font-medium text-muted-foreground mb-0.5">Impact</p>
+            <p className="text-xs text-foreground">{document.impact}</p>
           </div>
         )}
 
         {document.action_required && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-3">
-            <p className="text-xs font-medium text-destructive mb-1">Action Required</p>
-            <p className="text-sm text-foreground">{document.action_required}</p>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-md p-2 mb-2">
+            <p className="text-xs font-medium text-destructive mb-0.5">Action Required</p>
+            <p className="text-xs text-foreground">{document.action_required}</p>
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
           <span className="text-xs text-muted-foreground font-mono">{document.celex}</span>
-          <Button variant="outline" size="sm" asChild className="gap-1.5">
+          <Button variant="ghost" size="sm" asChild className="gap-1 h-7 text-xs">
             <a href={document.eurlex_url} target="_blank" rel="noopener noreferrer">
-              View on EUR-Lex
+              EUR-Lex
               <ExternalLink className="h-3 w-3" />
             </a>
           </Button>
@@ -288,42 +313,20 @@ const DocumentCard = ({ document }: { document: DocumentSummary }) => {
 };
 
 const DigestSkeleton = () => (
-  <>
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      {[...Array(4)].map((_, i) => (
-        <Card key={i}>
-          <CardContent className="p-4">
-            <Skeleton className="h-8 w-16 mb-2" />
-            <Skeleton className="h-4 w-24" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-    <Card className="mb-8">
-      <CardHeader>
-        <Skeleton className="h-6 w-48" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-3/4" />
-      </CardContent>
-    </Card>
-    <Skeleton className="h-6 w-40 mb-4" />
-    <div className="space-y-4">
-      {[...Array(3)].map((_, i) => (
-        <Card key={i}>
-          <CardContent className="p-6">
-            <Skeleton className="h-5 w-16 mb-3" />
-            <Skeleton className="h-5 w-3/4 mb-2" />
-            <Skeleton className="h-4 w-full mb-1" />
-            <Skeleton className="h-4 w-full mb-1" />
-            <Skeleton className="h-4 w-1/2" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  </>
+  <div className="space-y-4">
+    {[...Array(2)].map((_, i) => (
+      <Card key={i}>
+        <div className="p-4 flex items-center gap-4">
+          <Skeleton className="h-5 w-5" />
+          <div className="flex-1">
+            <Skeleton className="h-5 w-48 mb-2" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-9 w-32" />
+        </div>
+      </Card>
+    ))}
+  </div>
 );
 
 export default RegulatoryDigest;
