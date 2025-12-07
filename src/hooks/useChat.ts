@@ -79,6 +79,7 @@ export const useChat = () => {
         role: msg.role,
         content: msg.content,
       }));
+      console.log('Sending history:', history.length, 'messages', history);
 
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
