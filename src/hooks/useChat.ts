@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 export interface Source {
@@ -29,6 +29,12 @@ export const useChat = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Keep a ref to always have the latest conversations
+  const conversationsRef = useRef<Conversation[]>([]);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
 
@@ -73,8 +79,8 @@ export const useChat = () => {
     setIsLoading(true);
 
     try {
-      // Build history from current conversation (excluding the new user message)
-      const currentConversation = conversations.find(c => c.id === conversationId);
+      // Build history from current conversation using ref for latest state
+      const currentConversation = conversationsRef.current.find(c => c.id === conversationId);
       const history = (currentConversation?.messages || []).map(msg => ({
         role: msg.role,
         content: msg.content,
@@ -138,7 +144,7 @@ export const useChat = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeConversationId, conversations, createConversation]);
+  }, [activeConversationId, createConversation]);
 
   return {
     conversations,
