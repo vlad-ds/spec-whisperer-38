@@ -185,6 +185,8 @@ const FilterBar = ({
   setSelectedJurisdictions,
   selectedTypes,
   setSelectedTypes,
+  selectedStatuses,
+  setSelectedStatuses,
   allParties,
   jurisdictions,
   contractTypes,
@@ -195,10 +197,16 @@ const FilterBar = ({
   setSelectedJurisdictions: (value: string[]) => void;
   selectedTypes: string[];
   setSelectedTypes: (value: string[]) => void;
+  selectedStatuses: string[];
+  setSelectedStatuses: (value: string[]) => void;
   allParties: string[];
   jurisdictions: string[];
   contractTypes: string[];
 }) => {
+  const statusOptions = [
+    { value: "under_review", label: "Under Review" },
+    { value: "reviewed", label: "Reviewed" },
+  ];
   const toggleParty = (party: string) => {
     if (selectedParties.includes(party)) {
       setSelectedParties(selectedParties.filter((p) => p !== party));
@@ -233,6 +241,18 @@ const FilterBar = ({
 
   const clearTypes = () => {
     setSelectedTypes([]);
+  };
+
+  const toggleStatus = (status: string) => {
+    if (selectedStatuses.includes(status)) {
+      setSelectedStatuses(selectedStatuses.filter((s) => s !== status));
+    } else {
+      setSelectedStatuses([...selectedStatuses, status]);
+    }
+  };
+
+  const clearStatuses = () => {
+    setSelectedStatuses([]);
   };
 
   return (
@@ -429,6 +449,61 @@ const FilterBar = ({
           </ScrollArea>
         </PopoverContent>
       </Popover>
+
+      {/* Status Multi-Select */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="min-w-[150px] justify-between gap-2">
+            <span className="truncate">
+              {selectedStatuses.length === 0
+                ? "All Statuses"
+                : selectedStatuses.length === 1
+                ? statusOptions.find(s => s.value === selectedStatuses[0])?.label
+                : `${selectedStatuses.length} statuses`}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[220px] p-0 bg-popover" align="start">
+          <div className="p-2 border-b flex items-center justify-between">
+            <span className="text-sm font-medium">Select Status</span>
+            {selectedStatuses.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearStatuses} className="h-auto py-1 px-2 text-xs">
+                Clear all
+              </Button>
+            )}
+          </div>
+          <div className="p-2 space-y-1">
+            <label
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer border-b pb-2 mb-1"
+            >
+              <Checkbox
+                checked={selectedStatuses.length === statusOptions.length}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedStatuses(statusOptions.map(s => s.value));
+                  } else {
+                    setSelectedStatuses([]);
+                  }
+                }}
+              />
+              <span className="text-sm font-medium">Select All</span>
+            </label>
+            {statusOptions.map((option) => (
+              <label
+                key={option.value}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+              >
+                <Checkbox
+                  checked={selectedStatuses.includes(option.value)}
+                  onCheckedChange={() => toggleStatus(option.value)}
+                />
+                <span className="text-sm">{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
       
       <Tooltip>
         <TooltipTrigger asChild>
@@ -455,33 +530,48 @@ const FilterBar = ({
 
 // Contracts by Type Chart
 const ContractsByTypeChart = ({ data }: { data: { name: string; value: number }[] }) => {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Contracts by Type</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={2}
-                dataKey="value"
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                labelLine={false}
-              >
-                {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-              <RechartsTooltip />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="flex items-center gap-6">
+          <div className="h-[200px] w-[200px] flex-shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {data.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-2">
+            {data.map((item, index) => (
+              <div key={item.name} className="flex items-center gap-2 text-sm">
+                <div 
+                  className="w-3 h-3 rounded-sm flex-shrink-0" 
+                  style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                />
+                <span className="text-muted-foreground">{item.name}</span>
+                <span className="font-medium">{item.value}</span>
+                <span className="text-muted-foreground">({((item.value / total) * 100).toFixed(0)}%)</span>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -676,6 +766,7 @@ const Analytics = () => {
   const [selectedParties, setSelectedParties] = useState<string[]>([]);
   const [selectedJurisdictions, setSelectedJurisdictions] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   // Fetch contracts from Airtable
   const { data: contractsData, isLoading: contractsLoading } = useQuery({
@@ -772,9 +863,14 @@ const Analytics = () => {
         return false;
       }
 
+      // Status filter
+      if (selectedStatuses.length > 0 && !selectedStatuses.includes(c.fields.status || "")) {
+        return false;
+      }
+
       return true;
     });
-  }, [contracts, selectedParties, selectedJurisdictions, selectedTypes]);
+  }, [contracts, selectedParties, selectedJurisdictions, selectedTypes, selectedStatuses]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -865,6 +961,8 @@ const Analytics = () => {
           setSelectedJurisdictions={setSelectedJurisdictions}
           selectedTypes={selectedTypes}
           setSelectedTypes={setSelectedTypes}
+          selectedStatuses={selectedStatuses}
+          setSelectedStatuses={setSelectedStatuses}
           allParties={allParties}
           jurisdictions={jurisdictions}
           contractTypes={contractTypes}
