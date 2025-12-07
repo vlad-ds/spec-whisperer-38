@@ -276,8 +276,11 @@ serve(async (req) => {
           );
         }
 
+        // Use the reviewed value from request body, default to true
+        const reviewed = requestBody?.reviewed !== undefined ? requestBody.reviewed : true;
+
         const reviewUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}/review`;
-        console.log(`Marking contract as reviewed via ComplyFlow API: ${reviewUrl}`);
+        console.log(`Marking contract as reviewed=${reviewed} via ComplyFlow API: ${reviewUrl}`);
 
         const response = await fetch(reviewUrl, {
           method: 'PATCH',
@@ -285,7 +288,7 @@ serve(async (req) => {
             'X-API-Key': complyflowApiKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ reviewed: true }),
+          body: JSON.stringify({ reviewed }),
         });
 
         console.log('Review response status:', response.status);
