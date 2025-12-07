@@ -81,51 +81,58 @@ const Chat = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <div className="w-64 border-r border-border flex flex-col bg-muted/30">
-        <div className="p-4 border-b border-border">
-          <Button onClick={createConversation} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
-            New Chat
-          </Button>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="border-b border-border bg-card shrink-0">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-foreground">ComplyFlow</h1>
+          <nav className="flex gap-4">
+            <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Upload</Link>
+            <Link to="/contracts" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Contracts</Link>
+            <Link to="/chat" className="text-sm font-medium text-foreground">Chat</Link>
+          </nav>
         </div>
-        
-        <ScrollArea className="flex-1 p-2">
-          {conversations.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-4">
-              No conversations yet
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-64 border-r border-border flex flex-col bg-muted/30">
+          <div className="p-4 border-b border-border">
+            <Button onClick={createConversation} className="w-full gap-2">
+              <Plus className="h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
+          
+          <ScrollArea className="flex-1 p-2">
+            {conversations.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-4">
+                No conversations yet
+              </p>
+            ) : (
+              conversations.map(conv => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onClick={() => setActiveConversationId(conv.id)}
+                  onDelete={() => deleteConversation(conv.id)}
+                />
+              ))
+            )}
+          </ScrollArea>
+        </div>
+
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          <div className="border-b border-border p-4">
+            <h1 className="text-lg font-semibold">
+              {activeConversation?.title || 'ComplyFlow Assistant'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Powered by Gemini Flash
             </p>
-          ) : (
-            conversations.map(conv => (
-              <ConversationItem
-                key={conv.id}
-                conversation={conv}
-                isActive={conv.id === activeConversationId}
-                onClick={() => setActiveConversationId(conv.id)}
-                onDelete={() => deleteConversation(conv.id)}
-              />
-            ))
-          )}
-        </ScrollArea>
-
-        <div className="p-4 border-t border-border">
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            ← Back to Contracts
-          </Link>
-        </div>
-      </div>
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        <div className="border-b border-border p-4">
-          <h1 className="text-lg font-semibold">
-            {activeConversation?.title || 'ComplyFlow Assistant'}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Powered by GPT-5 Mini
-          </p>
-        </div>
+          </div>
 
         <ScrollArea className="flex-1 p-4">
           {!activeConversation || activeConversation.messages.length === 0 ? (
@@ -166,6 +173,7 @@ const Chat = () => {
             </Button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
