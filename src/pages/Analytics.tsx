@@ -9,14 +9,18 @@ import {
   FileCheck,
   Bell,
   ExternalLink,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AppHeader } from "@/components/AppHeader";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -175,41 +179,107 @@ const KPICard = ({
 
 // Filter bar component
 const FilterBar = ({
-  counterpartySearch,
-  setCounterpartySearch,
+  selectedParties,
+  setSelectedParties,
   selectedJurisdiction,
   setSelectedJurisdiction,
   selectedTypes,
   setSelectedTypes,
+  allParties,
   jurisdictions,
   contractTypes,
 }: {
-  counterpartySearch: string;
-  setCounterpartySearch: (value: string) => void;
+  selectedParties: string[];
+  setSelectedParties: (value: string[]) => void;
   selectedJurisdiction: string;
   setSelectedJurisdiction: (value: string) => void;
   selectedTypes: string[];
   setSelectedTypes: (value: string[]) => void;
+  allParties: string[];
   jurisdictions: string[];
   contractTypes: string[];
 }) => {
+  const toggleParty = (party: string) => {
+    if (selectedParties.includes(party)) {
+      setSelectedParties(selectedParties.filter((p) => p !== party));
+    } else {
+      setSelectedParties([...selectedParties, party]);
+    }
+  };
+
+  const clearParties = () => {
+    setSelectedParties([]);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-3 p-4 bg-card rounded-lg border">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search counterparty..."
-          value={counterpartySearch}
-          onChange={(e) => setCounterpartySearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      {/* Party Multi-Select */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="min-w-[200px] justify-between gap-2">
+            <span className="truncate">
+              {selectedParties.length === 0
+                ? "All Parties"
+                : selectedParties.length === 1
+                ? selectedParties[0]
+                : `${selectedParties.length} parties selected`}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0 bg-popover" align="start">
+          <div className="p-2 border-b flex items-center justify-between">
+            <span className="text-sm font-medium">Select Parties</span>
+            {selectedParties.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearParties} className="h-auto py-1 px-2 text-xs">
+                Clear all
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="h-[300px]">
+            <div className="p-2 space-y-1">
+              {allParties.map((party) => (
+                <label
+                  key={party}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+                >
+                  <Checkbox
+                    checked={selectedParties.includes(party)}
+                    onCheckedChange={() => toggleParty(party)}
+                  />
+                  <span className="text-sm truncate">{party}</span>
+                </label>
+              ))}
+              {allParties.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  No parties found
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+
+      {/* Selected parties badges */}
+      {selectedParties.length > 0 && selectedParties.length <= 3 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedParties.map((party) => (
+            <Badge key={party} variant="secondary" className="gap-1">
+              {party}
+              <X
+                className="h-3 w-3 cursor-pointer hover:text-destructive"
+                onClick={() => toggleParty(party)}
+              />
+            </Badge>
+          ))}
+        </div>
+      )}
       
       <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Jurisdiction" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="bg-popover">
           <SelectItem value="all">All Jurisdictions</SelectItem>
           {jurisdictions.map((j) => (
             <SelectItem key={j} value={j}>{j}</SelectItem>
@@ -224,7 +294,7 @@ const FilterBar = ({
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Contract Type" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="bg-popover">
           <SelectItem value="all">All Types</SelectItem>
           {contractTypes.map((t) => (
             <SelectItem key={t} value={t}>{t}</SelectItem>
@@ -475,7 +545,7 @@ const RegulatorySummary = ({ data, loading }: { data: RegulatoryData | null; loa
 
 // Main Analytics Page
 const Analytics = () => {
-  const [counterpartySearch, setCounterpartySearch] = useState("");
+  const [selectedParties, setSelectedParties] = useState<string[]>([]);
   const [selectedJurisdiction, setSelectedJurisdiction] = useState("all");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
@@ -535,16 +605,20 @@ const Analytics = () => {
   const contracts = contractsData || [];
 
   // Extract unique values for filters
-  const { jurisdictions, contractTypes } = useMemo(() => {
+  const { allParties, jurisdictions, contractTypes } = useMemo(() => {
+    const partySet = new Set<string>();
     const jurisdictionSet = new Set<string>();
     const typeSet = new Set<string>();
 
     contracts.forEach((c) => {
+      const parties = parseParties(c.fields.parties);
+      parties.forEach((p) => partySet.add(p));
       if (c.fields.governing_law) jurisdictionSet.add(c.fields.governing_law);
       if (c.fields.contract_type) typeSet.add(c.fields.contract_type);
     });
 
     return {
+      allParties: Array.from(partySet).sort((a, b) => a.localeCompare(b)),
       jurisdictions: Array.from(jurisdictionSet).sort(),
       contractTypes: Array.from(typeSet).sort(),
     };
@@ -553,13 +627,11 @@ const Analytics = () => {
   // Apply filters
   const filteredContracts = useMemo(() => {
     return contracts.filter((c) => {
-      // Counterparty search
-      if (counterpartySearch) {
+      // Party filter
+      if (selectedParties.length > 0) {
         const parties = parseParties(c.fields.parties);
-        const matchesSearch = parties.some((p) =>
-          p.toLowerCase().includes(counterpartySearch.toLowerCase())
-        );
-        if (!matchesSearch) return false;
+        const hasSelectedParty = parties.some((p) => selectedParties.includes(p));
+        if (!hasSelectedParty) return false;
       }
 
       // Jurisdiction filter
@@ -574,7 +646,7 @@ const Analytics = () => {
 
       return true;
     });
-  }, [contracts, counterpartySearch, selectedJurisdiction, selectedTypes]);
+  }, [contracts, selectedParties, selectedJurisdiction, selectedTypes]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -659,12 +731,13 @@ const Analytics = () => {
 
         {/* Filter Bar */}
         <FilterBar
-          counterpartySearch={counterpartySearch}
-          setCounterpartySearch={setCounterpartySearch}
+          selectedParties={selectedParties}
+          setSelectedParties={setSelectedParties}
           selectedJurisdiction={selectedJurisdiction}
           setSelectedJurisdiction={setSelectedJurisdiction}
           selectedTypes={selectedTypes}
           setSelectedTypes={setSelectedTypes}
+          allParties={allParties}
           jurisdictions={jurisdictions}
           contractTypes={contractTypes}
         />
