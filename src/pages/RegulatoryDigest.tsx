@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
-import { Download, ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, BarChart3 } from "lucide-react";
+import { ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, BarChart3, Inbox } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
 
 interface DocumentSummary {
   celex: string;
@@ -86,44 +85,6 @@ const RegulatoryDigest = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const handleExportPdf = async () => {
-    try {
-      const { data: pdfData, error } = await supabase.functions.invoke("regulatory-digest", {
-        body: null,
-      });
-      
-      // For PDF we need to fetch directly with the right params
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/regulatory-digest?format=pdf`,
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
-      );
-      
-      if (!response.ok) throw new Error("Failed to download PDF");
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `regulatory-digest-${data?.period_start}-${data?.period_end}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({ title: "PDF downloaded successfully" });
-    } catch (err) {
-      toast({
-        title: "Download failed",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
-      });
-    }
-  };
-
   const materialDocs = data?.documents
     ?.filter((d) => d.is_material)
     .sort((a, b) => {
@@ -152,18 +113,12 @@ const RegulatoryDigest = () => {
             <h2 className="text-3xl font-bold text-foreground tracking-tight">
               Weekly Regulatory Digest
             </h2>
-            {data && (
+          {data && data.total_documents > 0 && (
               <p className="text-muted-foreground mt-1">
                 {formatDate(data.period_start)} — {formatDate(data.period_end)}
               </p>
             )}
           </div>
-          {data && (
-            <Button onClick={handleExportPdf} className="gap-2">
-              <Download className="h-4 w-4" />
-              Export PDF
-            </Button>
-          )}
         </div>
 
         {isLoading && <DigestSkeleton />}
@@ -185,13 +140,17 @@ const RegulatoryDigest = () => {
         )}
 
         {data && data.total_documents === 0 && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No regulatory digest available yet</h3>
-              <p className="text-muted-foreground">
-                Check back after the weekly analysis runs.
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <Inbox className="h-16 w-16 text-muted-foreground/50 mb-6" />
+              <h3 className="text-xl font-semibold mb-2">No digest available yet</h3>
+              <p className="text-muted-foreground max-w-md mb-6">
+                The weekly regulatory analysis hasn't run yet for this period. Digests are generated automatically each week.
               </p>
+              <Button variant="outline" onClick={() => refetch()} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Check Again
+              </Button>
             </CardContent>
           </Card>
         )}
