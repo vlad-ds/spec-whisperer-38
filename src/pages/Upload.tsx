@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { FileDropzone } from '@/components/FileDropzone';
 import { FileSelected } from '@/components/FileSelected';
 import { ProcessingState } from '@/components/ProcessingState';
+import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/ui/card';
 import { uploadContract } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 type UploadState = 'idle' | 'selected' | 'uploading' | 'error';
 
@@ -68,37 +68,9 @@ const Upload = () => {
     handleUpload();
   };
 
-  const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) => {
-    const location = useLocation();
-    const isActive = location.pathname === to;
-    
-    return (
-      <Link
-        to={to}
-        className={cn(
-          'text-sm font-medium transition-colors hover:text-primary',
-          isActive ? 'text-foreground' : 'text-muted-foreground'
-        )}
-      >
-        {children}
-      </Link>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">ComplyFlow</h1>
-          <nav className="flex gap-4">
-            <NavItem to="/">Upload</NavItem>
-            <NavItem to="/contracts">Contracts</NavItem>
-            <NavItem to="/analytics">Analytics</NavItem>
-            <NavItem to="/regulatory-digest">Digest</NavItem>
-            <NavItem to="/chat">Chat</NavItem>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="flex flex-col items-center justify-center p-6" style={{ minHeight: 'calc(100vh - 65px)' }}>
         <div className="w-full max-w-[600px]">

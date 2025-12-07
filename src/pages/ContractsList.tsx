@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,8 +25,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { AppHeader } from '@/components/AppHeader';
 import { deleteContract, getContract, parseContract } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -81,22 +81,6 @@ const parseParties = (parties: string | undefined): string[] => {
   }
 };
 
-const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) => {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-  
-  return (
-    <Link
-      to={to}
-      className={cn(
-        'text-sm font-medium transition-colors hover:text-primary',
-        isActive ? 'text-foreground' : 'text-muted-foreground'
-      )}
-    >
-      {children}
-    </Link>
-  );
-};
 
 const SortableHeader = ({ 
   label, 
@@ -253,18 +237,7 @@ const ContractsList = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">ComplyFlow</h1>
-          <nav className="flex gap-4">
-            <NavItem to="/">Upload</NavItem>
-            <NavItem to="/contracts">Contracts</NavItem>
-            <NavItem to="/analytics">Analytics</NavItem>
-            <NavItem to="/regulatory-digest">Digest</NavItem>
-            <NavItem to="/chat">Chat</NavItem>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-6">
