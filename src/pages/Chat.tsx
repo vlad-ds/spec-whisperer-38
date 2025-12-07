@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useChat, Conversation, Message } from '@/hooks/useChat';
+import { useChat, Message } from '@/hooks/useChat';
+import { SourcesList } from '@/components/SourcesList';
 import { Plus, Send, MessageSquare, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,15 +13,20 @@ const ChatMessage = ({ message }: { message: Message }) => {
   
   return (
     <div className={cn('flex gap-3 mb-4', isUser ? 'justify-end' : 'justify-start')}>
-      <div
-        className={cn(
-          'max-w-[80%] rounded-lg px-4 py-2 text-sm',
-          isUser 
-            ? 'bg-primary text-primary-foreground' 
-            : 'bg-muted text-foreground'
+      <div className={cn('max-w-[80%]', isUser ? '' : 'w-full max-w-[80%]')}>
+        <div
+          className={cn(
+            'rounded-lg px-4 py-2 text-sm',
+            isUser 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-muted text-foreground'
+          )}
+        >
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        </div>
+        {!isUser && message.sources && (
+          <SourcesList sources={message.sources} />
         )}
-      >
-        <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
   );
@@ -32,7 +38,7 @@ const ConversationItem = ({
   onClick, 
   onDelete 
 }: { 
-  conversation: Conversation; 
+  conversation: { id: string; title: string }; 
   isActive: boolean; 
   onClick: () => void;
   onDelete: () => void;
@@ -62,6 +68,7 @@ const ConversationItem = ({
 
 const Chat = () => {
   const [input, setInput] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
   const {
     conversations,
     activeConversation,
@@ -72,6 +79,13 @@ const Chat = () => {
     sendMessage,
     isLoading,
   } = useChat();
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [activeConversation?.messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +103,7 @@ const Chat = () => {
           <nav className="flex gap-4">
             <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Upload</Link>
             <Link to="/contracts" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Contracts</Link>
-            <Link to="/chat" className="text-sm font-medium text-foreground">Chat</Link>
+            <Link to="/chat" className="text-sm font-medium text-foreground">RegWatch</Link>
           </nav>
         </div>
       </header>
@@ -127,52 +141,56 @@ const Chat = () => {
         <div className="flex-1 flex flex-col">
           <div className="border-b border-border p-4">
             <h1 className="text-lg font-semibold">
-              {activeConversation?.title || 'ComplyFlow Assistant'}
+              {activeConversation?.title || 'RegWatch Assistant'}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Powered by GPT-5 Mini
+              Ask questions about DORA, MiCA, and regulatory compliance
             </p>
           </div>
 
-        <ScrollArea className="flex-1 p-4">
-          {!activeConversation || activeConversation.messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center space-y-2">
-                <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                <h2 className="text-xl font-medium">How can I help you?</h2>
-                <p className="text-muted-foreground text-sm max-w-md">
-                  Ask me anything about contracts, compliance, or legal documentation.
-                </p>
+          <ScrollArea className="flex-1 p-4">
+            {!activeConversation || activeConversation.messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                  <h2 className="text-xl font-medium">How can I help you?</h2>
+                  <p className="text-muted-foreground text-sm max-w-md">
+                    Ask me anything about DORA, MiCA, or other regulatory frameworks.
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            activeConversation.messages.map((msg, i) => (
-              <ChatMessage key={i} message={msg} />
-            ))
-          )}
-          {isLoading && activeConversation?.messages[activeConversation.messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-3 mb-4">
-              <div className="bg-muted rounded-lg px-4 py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            </div>
-          )}
-        </ScrollArea>
+            ) : (
+              <>
+                {activeConversation.messages.map((msg, i) => (
+                  <ChatMessage key={i} message={msg} />
+                ))}
+                {isLoading && (
+                  <div className="flex gap-3 mb-4">
+                    <div className="bg-muted rounded-lg px-4 py-2 flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Thinking...</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={scrollRef} />
+              </>
+            )}
+          </ScrollArea>
 
-        <form onSubmit={handleSubmit} className="p-4 border-t border-border">
-          <div className="flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button type="submit" disabled={isLoading || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </form>
+          <form onSubmit={handleSubmit} className="p-4 border-t border-border">
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about regulations..."
+                disabled={isLoading}
+                className="flex-1"
+              />
+              <Button type="submit" disabled={isLoading || !input.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

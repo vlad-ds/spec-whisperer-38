@@ -1,8 +1,18 @@
 import { useState, useCallback } from 'react';
+import { toast } from '@/hooks/use-toast';
+
+export interface Source {
+  doc_id: string;
+  title: string;
+  text: string;
+  topic: string;
+  score: number;
+}
 
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
+  sources?: Source[];
 }
 
 export interface Conversation {
@@ -49,6 +59,7 @@ export const useChat = () => {
 
     const userMessage: Message = { role: 'user', content: input };
     
+    // Add user message and update title
     setConversations(prev => prev.map(conv => {
       if (conv.id === conversationId) {
         const updatedMessages = [...conv.messages, userMessage];
@@ -59,28 +70,14 @@ export const useChat = () => {
     }));
 
     setIsLoading(true);
-    let assistantContent = '';
-
-    const updateAssistant = (chunk: string) => {
-      assistantContent += chunk;
-      setConversations(prev => prev.map(conv => {
-        if (conv.id === conversationId) {
-          const messages = [...conv.messages];
-          const lastMessage = messages[messages.length - 1];
-          if (lastMessage?.role === 'assistant') {
-            messages[messages.length - 1] = { ...lastMessage, content: assistantContent };
-          } else {
-            messages.push({ role: 'assistant', content: assistantContent });
-          }
-          return { ...conv, messages };
-        }
-        return conv;
-      }));
-    };
 
     try {
+      // Build history from current conversation (excluding the new user message)
       const currentConversation = conversations.find(c => c.id === conversationId);
-      const messagesForApi = [...(currentConversation?.messages || []), userMessage];
+      const history = (currentConversation?.messages || []).map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
 
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
@@ -88,49 +85,52 @@ export const useChat = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: messagesForApi }),
+        body: JSON.stringify({ 
+          query: input,
+          history,
+        }),
       });
 
-      if (!resp.ok || !resp.body) {
+      if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to get response');
       }
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
+      const data = await resp.json();
+      
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.answer,
+        sources: data.sources,
+      };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) updateAssistant(content);
-          } catch {
-            textBuffer = line + '\n' + textBuffer;
-            break;
-          }
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === conversationId) {
+          return { ...conv, messages: [...conv.messages, assistantMessage] };
         }
-      }
+        return conv;
+      }));
     } catch (error) {
       console.error('Chat error:', error);
-      updateAssistant(`Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to get response',
+        variant: 'destructive',
+      });
+      
+      // Add error message to conversation
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === conversationId) {
+          return { 
+            ...conv, 
+            messages: [...conv.messages, { 
+              role: 'assistant' as const, 
+              content: `Sorry, I encountered an error. Please try again.` 
+            }] 
+          };
+        }
+        return conv;
+      }));
     } finally {
       setIsLoading(false);
     }
