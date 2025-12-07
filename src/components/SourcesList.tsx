@@ -7,6 +7,23 @@ import type { Source } from '@/hooks/useChat';
 const getEurLexUrl = (docId: string) => 
   `https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${docId}`;
 
+const formatCelex = (celex: string): string => {
+  if (!celex || celex.length < 6) return celex;
+  
+  const year = celex.slice(1, 5);
+  const type = celex[5];
+  const serial = celex.slice(6).replace(/^0+/, '');
+  
+  const typeMap: Record<string, string> = {
+    'R': 'Regulation (EU)',
+    'L': 'Directive (EU)',
+    'D': 'Decision (EU)',
+  };
+  
+  const typeName = typeMap[type] || 'Document';
+  return `${typeName} ${year}/${serial}`;
+};
+
 interface SourcesListProps {
   sources: Source[];
 }
@@ -62,7 +79,7 @@ const DocumentItem = ({ doc }: { doc: GroupedDocument }) => {
           {doc.title && (
             <p className="font-medium text-foreground line-clamp-2">{doc.title}</p>
           )}
-          <p className="text-xs text-muted-foreground truncate">{doc.doc_id}</p>
+          <p className="text-xs text-muted-foreground truncate">{formatCelex(doc.doc_id)}</p>
         </div>
         <a
           href={getEurLexUrl(doc.doc_id)}
