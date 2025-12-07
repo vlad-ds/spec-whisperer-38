@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Source } from '@/hooks/useChat';
 
-const getEurLexPdfUrl = (docId: string) => 
-  `https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:${docId}`;
+const getEurLexUrl = (docId: string) => 
+  `https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${docId}`;
 
 interface SourcesListProps {
   sources: Source[];
@@ -65,14 +65,14 @@ const DocumentItem = ({ doc }: { doc: GroupedDocument }) => {
           <p className="text-xs text-muted-foreground truncate">{doc.doc_id}</p>
         </div>
         <a
-          href={getEurLexPdfUrl(doc.doc_id)}
+          href={getEurLexUrl(doc.doc_id)}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
-          PDF
+          View
         </a>
       </button>
 
