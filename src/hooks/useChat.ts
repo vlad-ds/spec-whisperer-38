@@ -103,22 +103,12 @@ export const useChat = () => {
         role: 'assistant',
         content: data.answer,
         sources: data.sources,
+        rewrittenQuery: data.rewritten_query || undefined,
       };
 
       setConversations(prev => prev.map(conv => {
         if (conv.id === conversationId) {
-          // Update the last user message with rewritten query, then add assistant message
-          const updatedMessages = [...conv.messages];
-          if (updatedMessages.length > 0 && data.rewritten_query) {
-            const lastUserMsgIndex = updatedMessages.length - 1;
-            if (updatedMessages[lastUserMsgIndex].role === 'user') {
-              updatedMessages[lastUserMsgIndex] = {
-                ...updatedMessages[lastUserMsgIndex],
-                rewrittenQuery: data.rewritten_query,
-              };
-            }
-          }
-          return { ...conv, messages: [...updatedMessages, assistantMessage] };
+          return { ...conv, messages: [...conv.messages, assistantMessage] };
         }
         return conv;
       }));
