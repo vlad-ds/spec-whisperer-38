@@ -7,6 +7,13 @@ import type { Source } from '@/hooks/useChat';
 const getEurLexUrl = (docId: string) => 
   `https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${docId}`;
 
+// Check if a string is just a CELEX number (not a real title)
+const isCelexNumber = (str: string): boolean => {
+  if (!str) return false;
+  const cleaned = str.replace(/^CELEX:/, '');
+  return /^[0-9][0-9]{4}[A-Z]/.test(cleaned);
+};
+
 const formatCelex = (celex: string): string => {
   if (!celex || celex.length < 6) return celex;
   
@@ -76,7 +83,7 @@ const DocumentItem = ({ doc }: { doc: GroupedDocument }) => {
               • {doc.chunks.length} chunk{doc.chunks.length !== 1 ? 's' : ''}
             </span>
           </div>
-          {doc.title && (
+          {doc.title && !isCelexNumber(doc.title) && (
             <p className="font-medium text-foreground line-clamp-2">{doc.title}</p>
           )}
           <p className="text-xs text-muted-foreground truncate">{formatCelex(doc.doc_id)}</p>
