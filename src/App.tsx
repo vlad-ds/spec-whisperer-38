@@ -7,6 +7,7 @@ import Upload from "./pages/Upload";
 import ContractsList from "./pages/ContractsList";
 import ContractEditor from "./pages/ContractEditor";
 import Chat from "./pages/Chat";
+import RegulatoryDigest from "./pages/RegulatoryDigest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Upload />} />
           <Route path="/contracts" element={<ContractsList />} />
           <Route path="/contracts/:id" element={<ContractEditor />} />
+          <Route path="/regulatory-digest" element={<RegulatoryDigest />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
