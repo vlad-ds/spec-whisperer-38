@@ -126,6 +126,7 @@ const Chat = () => {
           <nav className="flex gap-4">
             <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Upload</Link>
             <Link to="/contracts" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Contracts</Link>
+            <Link to="/analytics" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Analytics</Link>
             <Link to="/regulatory-digest" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Digest</Link>
             <Link to="/chat" className="text-sm font-medium text-foreground">RegChat</Link>
           </nav>
