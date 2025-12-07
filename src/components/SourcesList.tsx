@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,15 @@ interface SourcesListProps {
   sources: Source[];
 }
 
+interface GroupedDocument {
+  doc_id: string;
+  title: string;
+  topic: string;
+  chunks: Source[];
+  totalScore: number;
+  maxScore: number;
+}
+
 const topicColors: Record<string, string> = {
   DORA: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   MiCA: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
@@ -15,10 +24,106 @@ const topicColors: Record<string, string> = {
   default: 'bg-muted text-muted-foreground',
 };
 
+const DocumentItem = ({ doc }: { doc: GroupedDocument }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-start gap-2 px-3 py-2 text-sm hover:bg-muted/30 transition-colors text-left"
+      >
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                'text-xs',
+                topicColors[doc.topic] || topicColors.default
+              )}
+            >
+              {doc.topic}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {Math.round(doc.maxScore * 100)}% match
+            </span>
+            <span className="text-xs text-muted-foreground">
+              • {doc.chunks.length} chunk{doc.chunks.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {doc.title && doc.title !== doc.doc_id && (
+            <p className="font-medium text-foreground truncate">{doc.title}</p>
+          )}
+          <p className="text-xs text-muted-foreground truncate">{doc.doc_id}</p>
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="pl-8 pr-3 pb-2 space-y-2">
+          {doc.chunks.map((chunk, index) => (
+            <div 
+              key={index} 
+              className="bg-muted/30 rounded-md p-2 text-xs"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-muted-foreground">
+                  Chunk {index + 1}
+                </span>
+                <span className="text-muted-foreground">
+                  • {Math.round(chunk.score * 100)}% match
+                </span>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                {chunk.text.length > 300 ? chunk.text.slice(0, 300) + '...' : chunk.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SourcesList = ({ sources }: SourcesListProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (!sources || sources.length === 0) return null;
+  const groupedDocs = useMemo(() => {
+    if (!sources || sources.length === 0) return [];
+
+    // Group sources by doc_id
+    const docMap = new Map<string, GroupedDocument>();
+    
+    for (const source of sources) {
+      const existing = docMap.get(source.doc_id);
+      if (existing) {
+        existing.chunks.push(source);
+        existing.totalScore += source.score;
+        existing.maxScore = Math.max(existing.maxScore, source.score);
+      } else {
+        docMap.set(source.doc_id, {
+          doc_id: source.doc_id,
+          title: source.title || source.doc_id,
+          topic: source.topic,
+          chunks: [source],
+          totalScore: source.score,
+          maxScore: source.score,
+        });
+      }
+    }
+
+    // Sort by relevance: first by max score, then by total score (more chunks = more relevant)
+    return Array.from(docMap.values()).sort((a, b) => {
+      if (b.maxScore !== a.maxScore) return b.maxScore - a.maxScore;
+      return b.totalScore - a.totalScore;
+    });
+  }, [sources]);
+
+  if (groupedDocs.length === 0) return null;
 
   return (
     <div className="mt-2 border border-border rounded-md overflow-hidden">
@@ -32,32 +137,13 @@ export const SourcesList = ({ sources }: SourcesListProps) => {
           <ChevronRight className="h-4 w-4" />
         )}
         <FileText className="h-4 w-4" />
-        <span>{sources.length} source{sources.length !== 1 ? 's' : ''}</span>
+        <span>{groupedDocs.length} document{groupedDocs.length !== 1 ? 's' : ''}</span>
       </button>
 
       {isExpanded && (
-        <div className="border-t border-border divide-y divide-border">
-          {sources.map((source, index) => (
-            <div key={index} className="px-3 py-2 text-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Badge 
-                  variant="secondary" 
-                  className={cn(
-                    'text-xs',
-                    topicColors[source.topic] || topicColors.default
-                  )}
-                >
-                  {source.topic}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {Math.round(source.score * 100)}% match
-                </span>
-              </div>
-              <p className="font-medium text-foreground mb-1">{source.doc_id}</p>
-              <p className="text-muted-foreground text-xs leading-relaxed">
-                {source.text.length > 200 ? source.text.slice(0, 200) + '...' : source.text}
-              </p>
-            </div>
+        <div className="border-t border-border">
+          {groupedDocs.map((doc) => (
+            <DocumentItem key={doc.doc_id} doc={doc} />
           ))}
         </div>
       )}
