@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChat, Message } from '@/hooks/useChat';
 import { SourcesList } from '@/components/SourcesList';
-import { Plus, Send, MessageSquare, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Send, MessageSquare, Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 const ChatMessage = ({ message }: { message: Message }) => {
@@ -101,6 +102,14 @@ const Chat = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Warning Banner */}
+      <Alert variant="default" className="rounded-none border-x-0 border-t-0 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+        <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+          Conversations are not saved. Refreshing the page will clear all chats.
+        </AlertDescription>
+      </Alert>
+
       {/* Header */}
       <header className="border-b border-border bg-card shrink-0">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
