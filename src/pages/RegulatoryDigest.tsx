@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
-import { ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, BarChart3, Inbox, ChevronDown, Download } from "lucide-react";
+import { ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, Inbox, ChevronDown, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,10 +87,37 @@ const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) =>
   );
 };
 
-const handlePdfDownload = () => {
-  toast.error("PDF export is currently unavailable", {
-    description: "The backend PDF generation service is not configured.",
+const downloadPdf = async (periodStart: string, periodEnd: string) => {
+  const { data, error } = await supabase.functions.invoke("regulatory-digest", {
+    body: null,
+    method: "GET",
   });
+  
+  // The invoke method doesn't support query params well for GET, so we'll use fetch directly
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
+  const response = await fetch(`${supabaseUrl}/functions/v1/regulatory-digest?format=pdf`, {
+    headers: {
+      "Authorization": `Bearer ${supabaseKey}`,
+      "apikey": supabaseKey,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to download PDF: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `regulatory-digest-${periodStart}-to-${periodEnd}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 };
 
 const RegulatoryDigest = () => {
@@ -173,6 +200,7 @@ const RegulatoryDigest = () => {
 
 const ReportCard = ({ report }: { report: WeeklySummaryResponse }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const materialDocs = report.documents
     ?.filter((d) => d.is_material)
@@ -180,6 +208,21 @@ const ReportCard = ({ report }: { report: WeeklySummaryResponse }) => {
       const order = { high: 0, medium: 1, low: 2, none: 3 };
       return order[a.relevance] - order[b.relevance];
     }) || [];
+
+  const handlePdfDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadPdf(report.period_start, report.period_end);
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("PDF download failed:", error);
+      toast.error("Failed to download PDF", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -217,9 +260,13 @@ const ReportCard = ({ report }: { report: WeeklySummaryResponse }) => {
             </button>
           </CollapsibleTrigger>
           
-          <Button onClick={handlePdfDownload} size="sm" className="gap-2 shrink-0">
-            <Download className="h-4 w-4" />
-            Download PDF
+          <Button onClick={handlePdfDownload} size="sm" className="gap-2 shrink-0" disabled={isDownloading}>
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {isDownloading ? "Downloading..." : "Download PDF"}
           </Button>
         </div>
 
