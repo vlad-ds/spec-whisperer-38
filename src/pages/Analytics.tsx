@@ -260,20 +260,6 @@ const FilterBar = ({
         </PopoverContent>
       </Popover>
 
-      {/* Selected parties badges */}
-      {selectedParties.length > 0 && selectedParties.length <= 3 && (
-        <div className="flex flex-wrap gap-1">
-          {selectedParties.map((party) => (
-            <Badge key={party} variant="secondary" className="gap-1">
-              {party}
-              <X
-                className="h-3 w-3 cursor-pointer hover:text-destructive"
-                onClick={() => toggleParty(party)}
-              />
-            </Badge>
-          ))}
-        </div>
-      )}
       
       <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
         <SelectTrigger className="w-[180px]">
