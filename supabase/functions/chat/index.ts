@@ -11,57 +11,41 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const { query, history } = await req.json();
+    const COMPLYFLOW_API_KEY = Deno.env.get("COMPLYFLOW_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!COMPLYFLOW_API_KEY) {
+      throw new Error("COMPLYFLOW_API_KEY is not configured");
     }
 
-    console.log("Processing chat request with", messages.length, "messages");
+    console.log("Processing Regwatch chat request:", query);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://complyflow-production.up.railway.app/regwatch/chat", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
+        "X-API-Key": COMPLYFLOW_API_KEY,
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a helpful AI assistant for ComplyFlow, a contract management application. You help users understand contracts, compliance, and legal documentation. Keep your answers clear, professional, and concise." 
-          },
-          ...messages,
-        ],
-        stream: true,
+        query,
+        history: history || [],
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds to your workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
+      console.error("Regwatch API error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: `API error: ${response.status}` }), {
+        status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    const data = await response.json();
+    console.log("Regwatch response received with", data.sources?.length || 0, "sources");
+
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Chat function error:", error);
