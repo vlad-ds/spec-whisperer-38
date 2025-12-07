@@ -79,7 +79,7 @@ const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) =>
 };
 
 const RegulatoryDigest = () => {
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["regulatory-digest"],
     queryFn: fetchWeeklySummary,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -147,9 +147,9 @@ const RegulatoryDigest = () => {
               <p className="text-muted-foreground max-w-md mb-6">
                 The weekly regulatory analysis hasn't run yet for this period. Digests are generated automatically each week.
               </p>
-              <Button variant="outline" onClick={() => refetch()} className="gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Check Again
+              <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+                <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+                {isFetching ? "Checking..." : "Check Again"}
               </Button>
             </CardContent>
           </Card>
