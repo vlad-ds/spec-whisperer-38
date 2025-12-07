@@ -98,6 +98,7 @@ export const useChat = () => {
       }
 
       const data = await resp.json();
+      console.log('Chat API response:', { answer: data.answer?.slice(0, 50), rewritten_query: data.rewritten_query });
       
       const assistantMessage: Message = {
         role: 'assistant',
