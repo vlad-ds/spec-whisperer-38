@@ -238,6 +238,23 @@ const FilterBar = ({
           </div>
           <ScrollArea className="h-[300px]">
             <div className="p-2 space-y-1">
+              {allParties.length > 0 && (
+                <label
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer border-b pb-2 mb-1"
+                >
+                  <Checkbox
+                    checked={selectedParties.length === allParties.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedParties(allParties);
+                      } else {
+                        setSelectedParties([]);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium">Select All</span>
+                </label>
+              )}
               {allParties.map((party) => (
                 <label
                   key={party}
