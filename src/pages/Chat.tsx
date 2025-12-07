@@ -72,6 +72,15 @@ const ConversationItem = ({
   </div>
 );
 
+const exampleQuestions = [
+  "What is DORA?",
+  "What are the ICT risk management requirements under DORA?",
+  "What is a microenterprise under DORA?",
+  "What are the incident reporting requirements for financial entities?",
+  "What liquidity requirements apply to stablecoin issuers under MiCA?",
+  "How does DORA relate to NIS2?",
+];
+
 const Chat = () => {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -191,20 +200,38 @@ const Chat = () => {
             )}
           </ScrollArea>
 
-          <form onSubmit={handleSubmit} className="p-4 border-t border-border">
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about regulations..."
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button type="submit" disabled={isLoading || !input.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
+          <div className="p-4 border-t border-border space-y-3">
+            {(!activeConversation || activeConversation.messages.length === 0) && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Try asking:</p>
+                <div className="flex flex-wrap gap-2">
+                  {exampleQuestions.map((question) => (
+                    <button
+                      key={question}
+                      onClick={() => setInput(question)}
+                      className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <form onSubmit={handleSubmit}>
+              <div className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask about regulations..."
+                  disabled={isLoading}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={isLoading || !input.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>
