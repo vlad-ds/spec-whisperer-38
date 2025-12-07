@@ -223,7 +223,8 @@ const ContractEditor = () => {
     }
   };
 
-  if (loading) {
+  // Show loading skeleton while fetching OR while data hasn't synced to state yet
+  if (loading || (!contract && !isError)) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-[800px] mx-auto">
@@ -243,12 +244,16 @@ const ContractEditor = () => {
     );
   }
 
-  if (!contract) {
+  if (!contract && isError) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Contract not found</p>
       </div>
     );
+  }
+
+  if (!contract) {
+    return null;
   }
 
   const isReviewed = contract.status === 'reviewed';
