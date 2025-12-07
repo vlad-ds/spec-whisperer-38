@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router-dom";
 import { ExternalLink, AlertCircle, RefreshCw, FileText, Calendar, Inbox, ChevronDown, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AppHeader } from "@/components/AppHeader";
 
 interface DocumentSummary {
   celex: string;
@@ -70,22 +70,6 @@ const formatShortDate = (dateStr: string) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) => {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-  
-  return (
-    <Link
-      to={to}
-      className={cn(
-        "text-sm font-medium transition-colors hover:text-primary",
-        isActive ? "text-foreground" : "text-muted-foreground"
-      )}
-    >
-      {children}
-    </Link>
-  );
-};
 
 const downloadPdf = async (periodStart: string, periodEnd: string) => {
   const { data, error } = await supabase.functions.invoke("regulatory-digest", {
@@ -129,18 +113,7 @@ const RegulatoryDigest = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">ComplyFlow</h1>
-          <nav className="flex gap-4">
-            <NavItem to="/">Upload</NavItem>
-            <NavItem to="/contracts">Contracts</NavItem>
-            <NavItem to="/analytics">Analytics</NavItem>
-            <NavItem to="/regulatory-digest">Digest</NavItem>
-            <NavItem to="/chat">Chat</NavItem>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Page Header */}

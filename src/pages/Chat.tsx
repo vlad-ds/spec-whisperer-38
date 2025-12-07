@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChat, Message } from '@/hooks/useChat';
 import { SourcesList } from '@/components/SourcesList';
+import { AppHeader } from '@/components/AppHeader';
 import { Plus, Send, MessageSquare, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -120,18 +120,7 @@ const Chat = () => {
       </Alert>
 
       {/* Header */}
-      <header className="border-b border-border bg-card shrink-0">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">ComplyFlow</h1>
-          <nav className="flex gap-4">
-            <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Upload</Link>
-            <Link to="/contracts" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Contracts</Link>
-            <Link to="/analytics" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Analytics</Link>
-            <Link to="/regulatory-digest" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Digest</Link>
-            <Link to="/chat" className="text-sm font-medium text-foreground">RegChat</Link>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}

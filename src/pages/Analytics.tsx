@@ -1,12 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   FileText,
-  MessageSquare,
-  Upload as UploadIcon,
-  BookOpen,
-  BarChart3,
   AlertCircle,
   Search,
   Clock,
@@ -20,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppHeader } from "@/components/AppHeader";
 import {
   Select,
   SelectContent,
@@ -50,10 +47,8 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
-  Legend,
   Tooltip as RechartsTooltip,
 } from "recharts";
-import { NavLink } from "@/components/NavLink";
 
 // Types
 interface ContractRecord {
@@ -137,34 +132,6 @@ const TOPIC_COLORS: Record<string, string> = {
   ESG: "hsl(180, 60%, 45%)",
 };
 
-// Navigation component
-const Navigation = () => {
-  const location = useLocation();
-  
-  const links = [
-    { to: "/", label: "Upload", icon: UploadIcon },
-    { to: "/contracts", label: "Contracts", icon: FileText },
-    { to: "/analytics", label: "Analytics", icon: BarChart3 },
-    { to: "/regulatory-digest", label: "RegWatch", icon: BookOpen },
-    { to: "/chat", label: "Chat", icon: MessageSquare },
-  ];
-  
-  return (
-    <nav className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-      {links.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
-          activeClassName="bg-background text-foreground shadow-sm"
-        >
-          <Icon className="h-4 w-4" />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
-  );
-};
 
 // KPI Card component
 const KPICard = ({
@@ -678,16 +645,7 @@ const Analytics = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-xl font-semibold">ComplyFlow</h1>
-              <Navigation />
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="container py-6 space-y-6">
         <div className="flex items-center justify-between">
