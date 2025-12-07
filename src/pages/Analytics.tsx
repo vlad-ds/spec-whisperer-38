@@ -181,8 +181,8 @@ const KPICard = ({
 const FilterBar = ({
   selectedParties,
   setSelectedParties,
-  selectedJurisdiction,
-  setSelectedJurisdiction,
+  selectedJurisdictions,
+  setSelectedJurisdictions,
   selectedTypes,
   setSelectedTypes,
   allParties,
@@ -191,8 +191,8 @@ const FilterBar = ({
 }: {
   selectedParties: string[];
   setSelectedParties: (value: string[]) => void;
-  selectedJurisdiction: string;
-  setSelectedJurisdiction: (value: string) => void;
+  selectedJurisdictions: string[];
+  setSelectedJurisdictions: (value: string[]) => void;
   selectedTypes: string[];
   setSelectedTypes: (value: string[]) => void;
   allParties: string[];
@@ -209,6 +209,30 @@ const FilterBar = ({
 
   const clearParties = () => {
     setSelectedParties([]);
+  };
+
+  const toggleJurisdiction = (jurisdiction: string) => {
+    if (selectedJurisdictions.includes(jurisdiction)) {
+      setSelectedJurisdictions(selectedJurisdictions.filter((j) => j !== jurisdiction));
+    } else {
+      setSelectedJurisdictions([...selectedJurisdictions, jurisdiction]);
+    }
+  };
+
+  const clearJurisdictions = () => {
+    setSelectedJurisdictions([]);
+  };
+
+  const toggleType = (type: string) => {
+    if (selectedTypes.includes(type)) {
+      setSelectedTypes(selectedTypes.filter((t) => t !== type));
+    } else {
+      setSelectedTypes([...selectedTypes, type]);
+    }
+  };
+
+  const clearTypes = () => {
+    setSelectedTypes([]);
   };
 
   return (
@@ -278,32 +302,133 @@ const FilterBar = ({
       </Popover>
 
       
-      <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Jurisdiction" />
-        </SelectTrigger>
-        <SelectContent className="bg-popover">
-          <SelectItem value="all">All Jurisdictions</SelectItem>
-          {jurisdictions.map((j) => (
-            <SelectItem key={j} value={j}>{j}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      
-      <Select 
-        value={selectedTypes.length === 1 ? selectedTypes[0] : "all"} 
-        onValueChange={(v) => setSelectedTypes(v === "all" ? [] : [v])}
-      >
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Contract Type" />
-        </SelectTrigger>
-        <SelectContent className="bg-popover">
-          <SelectItem value="all">All Types</SelectItem>
-          {contractTypes.map((t) => (
-            <SelectItem key={t} value={t}>{t}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Jurisdiction Multi-Select */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="min-w-[180px] justify-between gap-2">
+            <span className="truncate">
+              {selectedJurisdictions.length === 0
+                ? "All Jurisdictions"
+                : selectedJurisdictions.length === 1
+                ? selectedJurisdictions[0]
+                : `${selectedJurisdictions.length} jurisdictions`}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0 bg-popover" align="start">
+          <div className="p-2 border-b flex items-center justify-between">
+            <span className="text-sm font-medium">Select Jurisdictions</span>
+            {selectedJurisdictions.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearJurisdictions} className="h-auto py-1 px-2 text-xs">
+                Clear all
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="h-[300px]">
+            <div className="p-2 space-y-1">
+              {jurisdictions.length > 0 && (
+                <label
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer border-b pb-2 mb-1"
+                >
+                  <Checkbox
+                    checked={selectedJurisdictions.length === jurisdictions.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedJurisdictions(jurisdictions);
+                      } else {
+                        setSelectedJurisdictions([]);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium">Select All</span>
+                </label>
+              )}
+              {jurisdictions.map((jurisdiction) => (
+                <label
+                  key={jurisdiction}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+                >
+                  <Checkbox
+                    checked={selectedJurisdictions.includes(jurisdiction)}
+                    onCheckedChange={() => toggleJurisdiction(jurisdiction)}
+                  />
+                  <span className="text-sm truncate">{jurisdiction}</span>
+                </label>
+              ))}
+              {jurisdictions.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  No jurisdictions found
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+
+      {/* Contract Type Multi-Select */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="min-w-[180px] justify-between gap-2">
+            <span className="truncate">
+              {selectedTypes.length === 0
+                ? "All Types"
+                : selectedTypes.length === 1
+                ? selectedTypes[0]
+                : `${selectedTypes.length} types`}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0 bg-popover" align="start">
+          <div className="p-2 border-b flex items-center justify-between">
+            <span className="text-sm font-medium">Select Types</span>
+            {selectedTypes.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearTypes} className="h-auto py-1 px-2 text-xs">
+                Clear all
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="h-[300px]">
+            <div className="p-2 space-y-1">
+              {contractTypes.length > 0 && (
+                <label
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer border-b pb-2 mb-1"
+                >
+                  <Checkbox
+                    checked={selectedTypes.length === contractTypes.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedTypes(contractTypes);
+                      } else {
+                        setSelectedTypes([]);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium">Select All</span>
+                </label>
+              )}
+              {contractTypes.map((type) => (
+                <label
+                  key={type}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+                >
+                  <Checkbox
+                    checked={selectedTypes.includes(type)}
+                    onCheckedChange={() => toggleType(type)}
+                  />
+                  <span className="text-sm truncate">{type}</span>
+                </label>
+              ))}
+              {contractTypes.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  No types found
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
       
       <Tooltip>
         <TooltipTrigger asChild>
@@ -549,7 +674,7 @@ const RegulatorySummary = ({ data, loading }: { data: RegulatoryData | null; loa
 // Main Analytics Page
 const Analytics = () => {
   const [selectedParties, setSelectedParties] = useState<string[]>([]);
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState("all");
+  const [selectedJurisdictions, setSelectedJurisdictions] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   // Fetch contracts from Airtable
@@ -638,7 +763,7 @@ const Analytics = () => {
       }
 
       // Jurisdiction filter
-      if (selectedJurisdiction !== "all" && c.fields.governing_law !== selectedJurisdiction) {
+      if (selectedJurisdictions.length > 0 && !selectedJurisdictions.includes(c.fields.governing_law || "")) {
         return false;
       }
 
@@ -649,7 +774,7 @@ const Analytics = () => {
 
       return true;
     });
-  }, [contracts, selectedParties, selectedJurisdiction, selectedTypes]);
+  }, [contracts, selectedParties, selectedJurisdictions, selectedTypes]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -736,8 +861,8 @@ const Analytics = () => {
         <FilterBar
           selectedParties={selectedParties}
           setSelectedParties={setSelectedParties}
-          selectedJurisdiction={selectedJurisdiction}
-          setSelectedJurisdiction={setSelectedJurisdiction}
+          selectedJurisdictions={selectedJurisdictions}
+          setSelectedJurisdictions={setSelectedJurisdictions}
           selectedTypes={selectedTypes}
           setSelectedTypes={setSelectedTypes}
           allParties={allParties}
