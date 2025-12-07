@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChat, Message } from '@/hooks/useChat';
 import { SourcesList } from '@/components/SourcesList';
-import { Plus, Send, MessageSquare, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Send, MessageSquare, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const ChatMessage = ({ message }: { message: Message }) => {
   const isUser = message.role === 'user';
+  const [isOpen, setIsOpen] = useState(false);
   
   return (
     <div className={cn('flex gap-3 mb-4', isUser ? 'justify-end' : 'justify-start')}>
@@ -24,6 +26,19 @@ const ChatMessage = ({ message }: { message: Message }) => {
         >
           <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
+        {isUser && message.rewrittenQuery && (
+          <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-1">
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronDown className={cn('h-3 w-3 transition-transform', isOpen && 'rotate-180')} />
+              <span>Interpreted query</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <p className="text-xs text-muted-foreground mt-1 italic pl-4">
+                {message.rewrittenQuery}
+              </p>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
         {!isUser && message.sources && (
           <SourcesList sources={message.sources} />
         )}
