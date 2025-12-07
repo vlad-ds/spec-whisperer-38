@@ -59,8 +59,8 @@ const DocumentItem = ({ doc }: { doc: GroupedDocument }) => {
               • {doc.chunks.length} chunk{doc.chunks.length !== 1 ? 's' : ''}
             </span>
           </div>
-          {doc.title && doc.title !== doc.doc_id && (
-            <p className="font-medium text-foreground truncate">{doc.title}</p>
+          {doc.title && (
+            <p className="font-medium text-foreground line-clamp-2">{doc.title}</p>
           )}
           <p className="text-xs text-muted-foreground truncate">{doc.doc_id}</p>
         </div>
@@ -107,6 +107,7 @@ export const SourcesList = ({ sources }: SourcesListProps) => {
 
   const groupedDocs = useMemo(() => {
     if (!sources || sources.length === 0) return [];
+    console.log('Sources received:', sources.slice(0, 2).map(s => ({ doc_id: s.doc_id, title: s.title })));
 
     // Group sources by doc_id
     const docMap = new Map<string, GroupedDocument>();
@@ -120,7 +121,7 @@ export const SourcesList = ({ sources }: SourcesListProps) => {
       } else {
         docMap.set(source.doc_id, {
           doc_id: source.doc_id,
-          title: source.title || source.doc_id,
+          title: source.title || '',
           topic: source.topic,
           chunks: [source],
           totalScore: source.score,
