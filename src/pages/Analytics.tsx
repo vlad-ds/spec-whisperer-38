@@ -13,6 +13,7 @@ import {
   X,
   Calendar,
   Info,
+  MessagesSquare,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1128,16 +1129,25 @@ const Analytics = () => {
               Overview of contracts and regulatory updates
             </p>
           </div>
-          <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg border">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Label htmlFor="demo-mode" className="text-sm cursor-pointer">
-              Demo mode (Oct 1, 2013)
-            </Label>
-            <Switch
-              id="demo-mode"
-              checked={useSimulatedDate}
-              onCheckedChange={setUseSimulatedDate}
-            />
+          <div className="flex items-center gap-4">
+            <Link 
+              to="/compychat" 
+              className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              <MessagesSquare className="h-4 w-4" />
+              Ask about your contracts
+            </Link>
+            <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg border">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="demo-mode" className="text-sm cursor-pointer">
+                Demo mode (Oct 1, 2013)
+              </Label>
+              <Switch
+                id="demo-mode"
+                checked={useSimulatedDate}
+                onCheckedChange={setUseSimulatedDate}
+              />
+            </div>
           </div>
         </div>
 

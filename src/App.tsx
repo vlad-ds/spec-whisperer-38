@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ContractsList from "./pages/ContractsList";
 import ContractEditor from "./pages/ContractEditor";
 import Chat from "./pages/Chat";
+import CompyChat from "./pages/CompyChat";
 import RegulatoryDigest from "./pages/RegulatoryDigest";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/contracts" element={<ContractsList />} />
           <Route path="/contracts/:id" element={<ContractEditor />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/compychat" element={<CompyChat />} />
           <Route path="/regulatory-digest" element={<RegulatoryDigest />} />
           <Route path="/regchat" element={<Chat />} />
           <Route path="*" element={<NotFound />} />
