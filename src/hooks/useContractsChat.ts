@@ -120,9 +120,12 @@ export const useContractsChat = () => {
       }));
     } catch (error) {
       console.error('Contracts Chat error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get response';
+      const isServiceError = errorMessage.includes('temporarily unavailable') || errorMessage.includes('service');
+      
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to get response',
+        title: isServiceError ? 'Service Temporarily Unavailable' : 'Error',
+        description: errorMessage,
         variant: 'destructive',
       });
       
@@ -132,7 +135,9 @@ export const useContractsChat = () => {
             ...conv, 
             messages: [...conv.messages, { 
               role: 'assistant' as const, 
-              content: 'Sorry, I encountered an error. Please try again.',
+              content: isServiceError 
+                ? 'The contracts service is temporarily unavailable. This can happen when the server is under heavy load. Please try your question again in a moment.'
+                : 'Sorry, I encountered an error. Please try again.',
               timestamp: new Date(),
             }] 
           };
