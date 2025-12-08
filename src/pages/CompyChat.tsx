@@ -21,56 +21,19 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-
-// Group sources by contract document
-interface GroupedSource {
-  contract_id: string;
-  filename: string;
-  chunks: { text: string; score: number }[];
-  maxScore: number;
-}
-
-const groupSourcesByDocument = (sources: ContractSource[]): GroupedSource[] => {
-  const grouped = sources.reduce((acc, source) => {
-    const key = source.contract_id;
-    if (!acc[key]) {
-      acc[key] = {
-        contract_id: source.contract_id,
-        filename: source.filename,
-        chunks: [],
-        maxScore: 0,
-      };
-    }
-    acc[key].chunks.push({ text: source.text, score: source.score });
-    acc[key].maxScore = Math.max(acc[key].maxScore, source.score);
-    return acc;
-  }, {} as Record<string, GroupedSource>);
-
-  return Object.values(grouped).sort((a, b) => b.maxScore - a.maxScore);
-};
-
-// Sources display component - grouped by document
+// Simple sources list - shows only cited contracts
 const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
 
   if (!sources || sources.length === 0) return null;
 
-  const groupedSources = groupSourcesByDocument(sources);
-  
-  // Check if API is returning actual scores (not all zeros)
-  const hasValidScores = sources.some(s => s.score > 0);
-
-  const toggleDoc = (contractId: string) => {
-    setExpandedDocs(prev => {
-      const next = new Set(prev);
-      if (next.has(contractId)) {
-        next.delete(contractId);
-      } else {
-        next.add(contractId);
-      }
-      return next;
-    });
+  // Parse filename to extract name and parties
+  const parseFilename = (filename: string) => {
+    const match = filename.match(/^(.+?)\s*\((.+)\)$/);
+    if (match) {
+      return { name: match[1].trim(), parties: match[2].trim() };
+    }
+    return { name: filename, parties: null };
   };
 
   return (
@@ -78,57 +41,33 @@ const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <FileText className="h-3.5 w-3.5" />
-          <span>Sources ({groupedSources.length} {groupedSources.length === 1 ? 'contract' : 'contracts'})</span>
+          <span>Sources ({sources.length})</span>
           {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 space-y-2">
-        {groupedSources.map((doc) => (
-          <div 
-            key={doc.contract_id} 
-            className="bg-background border rounded-md overflow-hidden"
-          >
-            <div 
-              className="flex items-center justify-between gap-2 p-3 cursor-pointer hover:bg-muted/50"
-              onClick={() => toggleDoc(doc.contract_id)}
-            >
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+      <CollapsibleContent className="mt-2">
+        <div className="space-y-3">
+          {sources.map((source, idx) => {
+            const { name, parties } = parseFilename(source.filename);
+            return (
+              <div key={idx} className="rounded-lg border bg-card p-3 space-y-2">
                 <Link 
-                  to={`/contracts/${doc.contract_id}`}
-                  className="font-medium text-sm text-primary hover:underline flex items-center gap-1 truncate"
-                  onClick={(e) => e.stopPropagation()}
+                  to={`/contracts/${source.contract_id}`}
+                  className="font-medium text-sm text-primary hover:underline flex items-center gap-1"
                 >
-                  {doc.filename.split(' (')[0]}
+                  {name}
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </Link>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {doc.chunks.length} {doc.chunks.length === 1 ? 'excerpt' : 'excerpts'}
-                </span>
-                {hasValidScores && doc.maxScore > 0 && (
-                  <span className="text-xs font-medium text-primary">
-                    {Math.round(doc.maxScore * 100)}%
-                  </span>
+                {parties && (
+                  <p className="text-xs text-muted-foreground">{parties}</p>
                 )}
-                {expandedDocs.has(doc.contract_id) ? (
-                  <ChevronUp className="h-3 w-3 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                )}
+                <blockquote className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2">
+                  "{source.text}"
+                </blockquote>
               </div>
-            </div>
-            {expandedDocs.has(doc.contract_id) && (
-              <div className="border-t px-3 py-2 space-y-2 bg-muted/30">
-                {doc.chunks.map((chunk, idx) => (
-                  <div key={idx} className="text-xs text-muted-foreground">
-                    <span className="line-clamp-2">"{chunk.text}"</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+            );
+          })}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
