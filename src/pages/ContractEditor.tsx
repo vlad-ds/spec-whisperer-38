@@ -56,8 +56,7 @@ const ContractEditor = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
-  const [hasPdf, setHasPdf] = useState(false);
-  const [isPdfLoading, setIsPdfLoading] = useState(true);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfKey, setPdfKey] = useState(0); // Used to force iframe refresh
@@ -86,10 +85,6 @@ const ContractEditor = () => {
     queryKey: ['contract', id],
     queryFn: async () => {
       const record = await getContract(id!);
-      // Check PDF availability from contract record (pdf_url field)
-      const hasPdfAvailable = !!record.fields?.pdf_url;
-      setHasPdf(hasPdfAvailable);
-      setIsPdfLoading(false);
       return parseContract(record);
     },
     enabled: !!id,
@@ -118,12 +113,6 @@ const ContractEditor = () => {
     }
   }, [isError, navigate]);
 
-  // Reset PDF state when id changes
-  useEffect(() => {
-    if (!id) return;
-    setHasPdf(false);
-    setIsPdfLoading(true);
-  }, [id]);
 
   const debouncedSave = useCallback(async (
     fieldName: string,
@@ -264,21 +253,14 @@ const ContractEditor = () => {
           </Button>
           
           <div className="flex items-center gap-3">
-            {hasPdf ? (
-              <Button
-                variant="outline"
-                onClick={() => setShowPdfViewer(true)}
-                className="gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                View PDF
-              </Button>
-            ) : isPdfLoading ? (
-              <Button variant="outline" disabled className="gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading PDF...
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              onClick={() => setShowPdfViewer(true)}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              View PDF
+            </Button>
             
             <SaveIndicator status={saveStatus} />
             
@@ -464,7 +446,7 @@ const ContractEditor = () => {
               {contract?.filename}
             </SheetTitle>
           </SheetHeader>
-          {hasPdf && id && (
+          {id && (
             <div className="relative w-full h-[calc(100vh-80px)]">
               {pdfError ? (
                 <div className="flex flex-col items-center justify-center h-full gap-4 p-6 text-center">
@@ -491,15 +473,13 @@ const ContractEditor = () => {
                   src={getPdfProxyUrl(id)}
                   className="w-full h-full"
                   title="PDF Viewer"
-                  onError={() => setPdfError('The PDF could not be loaded. Please try again.')}
+                  onError={() => setPdfError('The PDF could not be loaded. This contract may not have a PDF attached.')}
                   onLoad={(e) => {
-                    // Check if load resulted in error by examining content type if accessible
                     const iframe = e.target as HTMLIFrameElement;
                     try {
-                      // If we can access the document title and it contains error indicators
                       const doc = iframe.contentDocument;
                       if (doc && doc.body.textContent?.includes('error')) {
-                        setPdfError('PDF fetch timed out or failed. Please try again.');
+                        setPdfError('PDF not found. This contract may have been uploaded before PDF storage was enabled.');
                       }
                     } catch {
                       // Cross-origin - PDF loaded successfully from edge function
