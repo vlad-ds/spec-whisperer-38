@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Loader2, FileText, Calendar } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, FileText, Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -59,6 +59,8 @@ const ContractEditor = () => {
   const [hasPdf, setHasPdf] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(true);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfKey, setPdfKey] = useState(0); // Used to force iframe refresh
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -449,7 +451,12 @@ const ContractEditor = () => {
       </main>
 
       {/* PDF Viewer Sheet */}
-      <Sheet open={showPdfViewer} onOpenChange={setShowPdfViewer}>
+      <Sheet open={showPdfViewer} onOpenChange={(open) => {
+        setShowPdfViewer(open);
+        if (!open) {
+          setPdfError(null);
+        }
+      }}>
         <SheetContent side="right" className="w-full sm:max-w-3xl p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle className="flex items-center gap-2">
@@ -458,11 +465,49 @@ const ContractEditor = () => {
             </SheetTitle>
           </SheetHeader>
           {hasPdf && id && (
-            <iframe
-              src={getPdfProxyUrl(id)}
-              className="w-full h-[calc(100vh-80px)]"
-              title="PDF Viewer"
-            />
+            <div className="relative w-full h-[calc(100vh-80px)]">
+              {pdfError ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4 p-6 text-center">
+                  <AlertCircle className="h-12 w-12 text-destructive" />
+                  <div>
+                    <p className="font-medium text-foreground mb-1">Failed to load PDF</p>
+                    <p className="text-sm text-muted-foreground">{pdfError}</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setPdfError(null);
+                      setPdfKey(k => k + 1);
+                    }}
+                    className="gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Try Again
+                  </Button>
+                </div>
+              ) : (
+                <iframe
+                  key={pdfKey}
+                  src={getPdfProxyUrl(id)}
+                  className="w-full h-full"
+                  title="PDF Viewer"
+                  onError={() => setPdfError('The PDF could not be loaded. Please try again.')}
+                  onLoad={(e) => {
+                    // Check if load resulted in error by examining content type if accessible
+                    const iframe = e.target as HTMLIFrameElement;
+                    try {
+                      // If we can access the document title and it contains error indicators
+                      const doc = iframe.contentDocument;
+                      if (doc && doc.body.textContent?.includes('error')) {
+                        setPdfError('PDF fetch timed out or failed. Please try again.');
+                      }
+                    } catch {
+                      // Cross-origin - PDF loaded successfully from edge function
+                    }
+                  }}
+                />
+              )}
+            </div>
           )}
         </SheetContent>
       </Sheet>
