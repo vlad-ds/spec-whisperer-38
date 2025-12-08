@@ -57,6 +57,9 @@ const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
   if (!sources || sources.length === 0) return null;
 
   const groupedSources = groupSourcesByDocument(sources);
+  
+  // Check if API is returning actual scores (not all zeros)
+  const hasValidScores = sources.some(s => s.score > 0);
 
   const toggleDoc = (contractId: string) => {
     setExpandedDocs(prev => {
@@ -75,7 +78,7 @@ const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <FileText className="h-3.5 w-3.5" />
-          <span>Sources ({groupedSources.length} contracts)</span>
+          <span>Sources ({groupedSources.length} {groupedSources.length === 1 ? 'contract' : 'contracts'})</span>
           {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </CollapsibleTrigger>
@@ -89,23 +92,25 @@ const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
               className="flex items-center justify-between gap-2 p-3 cursor-pointer hover:bg-muted/50"
               onClick={() => toggleDoc(doc.contract_id)}
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Link 
                   to={`/contracts/${doc.contract_id}`}
                   className="font-medium text-sm text-primary hover:underline flex items-center gap-1 truncate"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {doc.filename}
+                  {doc.filename.split(' (')[0]}
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </Link>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  ({doc.chunks.length} {doc.chunks.length === 1 ? 'excerpt' : 'excerpts'})
-                </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-medium text-primary">
-                  {Math.round(doc.maxScore * 100)}% relevance
+                <span className="text-xs text-muted-foreground">
+                  {doc.chunks.length} {doc.chunks.length === 1 ? 'excerpt' : 'excerpts'}
                 </span>
+                {hasValidScores && doc.maxScore > 0 && (
+                  <span className="text-xs font-medium text-primary">
+                    {Math.round(doc.maxScore * 100)}%
+                  </span>
+                )}
                 {expandedDocs.has(doc.contract_id) ? (
                   <ChevronUp className="h-3 w-3 text-muted-foreground" />
                 ) : (
@@ -117,9 +122,6 @@ const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
               <div className="border-t px-3 py-2 space-y-2 bg-muted/30">
                 {doc.chunks.map((chunk, idx) => (
                   <div key={idx} className="text-xs text-muted-foreground">
-                    <span className="text-[10px] text-muted-foreground/70 mr-1">
-                      [{Math.round(chunk.score * 100)}%]
-                    </span>
                     <span className="line-clamp-2">"{chunk.text}"</span>
                   </div>
                 ))}
