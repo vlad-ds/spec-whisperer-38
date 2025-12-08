@@ -156,7 +156,7 @@ serve(async (req) => {
         console.log(`Fetching PDF from ComplyFlow API: ${pdfUrl}`);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
 
         try {
           const pdfResponse = await fetch(pdfUrl, {
@@ -199,7 +199,7 @@ serve(async (req) => {
         } catch (err: unknown) {
           clearTimeout(timeoutId);
           if (err instanceof Error && err.name === 'AbortError') {
-            console.error('PDF fetch timed out after 30 seconds');
+            console.error('PDF fetch timed out after 60 seconds');
             return new Response(
               JSON.stringify({ error: 'PDF fetch timed out. Please try again.' }),
               { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
