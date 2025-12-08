@@ -88,16 +88,16 @@ const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
               : 'bg-card border border-border rounded-bl-md'
           )}
         >
-          <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+          <div className="text-sm leading-relaxed">
             <ReactMarkdown
               components={{
                 h1: ({ children }) => <h1 className="text-lg font-bold mt-3 mb-2">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-base font-bold mt-3 mb-1">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-sm font-semibold mt-2 mb-1">{children}</h3>,
                 p: ({ children }) => <p className="my-2">{children}</p>,
-                ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1">{children}</ol>,
-                li: ({ children }) => <li className="text-sm">{children}</li>,
+                ul: ({ children }) => <ul className="list-disc pl-5 my-2">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-5 my-2">{children}</ol>,
+                li: ({ children }) => <li className="my-1">{children}</li>,
                 strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                 code: ({ children }) => (
                   <code className="bg-muted px-1 py-0.5 rounded text-xs">{children}</code>
@@ -107,7 +107,7 @@ const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
                 ),
               }}
             >
-              {message.content}
+              {message.content.replace(/\n•\s*\n/g, '\n• ').replace(/•\s*\n(?!\n)/g, '• ')}
             </ReactMarkdown>
           </div>
         </div>
