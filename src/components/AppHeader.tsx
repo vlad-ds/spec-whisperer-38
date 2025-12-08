@@ -13,7 +13,7 @@ const navLinks = [
   { to: "/contracts", label: "Contracts", icon: FileText },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/regulatory-digest", label: "Digest", icon: BookOpen },
-  { to: "/chat", label: "Chat", icon: MessageSquare },
+  { to: "/chat", label: "RegChat", icon: MessageSquare },
 ];
 
 const NavItem = ({ 
