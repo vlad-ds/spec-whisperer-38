@@ -37,7 +37,6 @@ import {
   parseContract,
   markAsReviewed,
   updateField,
-  getPdfUrl,
   getPdfProxyUrl,
   getCitations,
   type ParsedContract,
@@ -85,6 +84,10 @@ const ContractEditor = () => {
     queryKey: ['contract', id],
     queryFn: async () => {
       const record = await getContract(id!);
+      // Check PDF availability from contract record (pdf_url field)
+      const hasPdfAvailable = !!record.fields?.pdf_url;
+      setHasPdf(hasPdfAvailable);
+      setIsPdfLoading(false);
       return parseContract(record);
     },
     enabled: !!id,
@@ -113,27 +116,11 @@ const ContractEditor = () => {
     }
   }, [isError, navigate]);
 
-  // Check if PDF is available - reset state when id changes
+  // Reset PDF state when id changes
   useEffect(() => {
     if (!id) return;
-    
-    // Reset state immediately when id changes
     setHasPdf(false);
     setIsPdfLoading(true);
-    
-    const checkPdfAvailable = async () => {
-      try {
-        const result = await getPdfUrl(id);
-        setHasPdf(!!result.pdfPath);
-      } catch (error) {
-        console.error('Failed to check PDF availability:', error);
-        setHasPdf(false);
-      } finally {
-        setIsPdfLoading(false);
-      }
-    };
-    
-    checkPdfAvailable();
   }, [id]);
 
   const debouncedSave = useCallback(async (

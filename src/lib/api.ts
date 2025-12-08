@@ -17,6 +17,7 @@ export interface ContractRecord {
     renewal_term: string | null;
     status: 'under_review' | 'reviewed';
     reviewed_at: string | null;
+    pdf_url: string | null;
   };
   created_time: string;
 }
