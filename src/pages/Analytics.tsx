@@ -117,17 +117,18 @@ const getDaysUntil = (dateStr: string | null | undefined, referenceDate: Date): 
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-const getEarliestDeadline = (contract: ContractRecord, referenceDate: Date): { date: string | null; days: number | null } => {
-  const deadlines = [
-    contract.fields.notice_deadline,
-    contract.fields.expiration_date,
-  ].filter(Boolean) as string[];
+const getEarliestDeadline = (contract: ContractRecord, referenceDate: Date): { date: string | null; days: number | null; type: string | null } => {
+  const deadlineEntries = [
+    { date: contract.fields.expiration_date, type: 'Expiration' },
+    { date: contract.fields.notice_deadline, type: 'Notice' },
+    { date: contract.fields.first_renewal_date, type: 'Renewal' },
+  ].filter(d => d.date) as { date: string; type: string }[];
   
-  if (deadlines.length === 0) return { date: null, days: null };
+  if (deadlineEntries.length === 0) return { date: null, days: null, type: null };
   
-  const sorted = deadlines.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const sorted = deadlineEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const earliest = sorted[0];
-  return { date: earliest, days: getDaysUntil(earliest, referenceDate) };
+  return { date: earliest.date, days: getDaysUntil(earliest.date, referenceDate), type: earliest.type };
 };
 
 // Chart colors using design tokens
@@ -601,25 +602,27 @@ const DeadlineCalendarHeatmap = ({
 }) => {
   // Build a map of dates to deadlines
   const deadlineMap = useMemo(() => {
-    const map = new Map<string, { count: number; contracts: { id: string; name: string; type: string }[] }>();
+    const map = new Map<string, { count: number; contracts: { id: string; name: string; type: string; deadlineType: string }[] }>();
     
     contracts.forEach(c => {
-      const deadlines = [
-        c.fields.expiration_date,
-        c.fields.notice_deadline,
-      ].filter(Boolean) as string[];
+      const deadlineEntries = [
+        { date: c.fields.expiration_date, deadlineType: 'Expiration' },
+        { date: c.fields.notice_deadline, deadlineType: 'Notice' },
+        { date: c.fields.first_renewal_date, deadlineType: 'Renewal' },
+      ].filter(d => d.date) as { date: string; deadlineType: string }[];
       
       const parties = parseParties(c.fields.parties);
       const name = parties[0] || c.fields.filename || 'Unknown';
       
-      deadlines.forEach(d => {
-        const dateKey = d.split('T')[0]; // YYYY-MM-DD
+      deadlineEntries.forEach(d => {
+        const dateKey = d.date.split('T')[0]; // YYYY-MM-DD
         const existing = map.get(dateKey) || { count: 0, contracts: [] };
         existing.count++;
         existing.contracts.push({ 
           id: c.id, 
           name, 
-          type: c.fields.contract_type || 'Unknown' 
+          type: c.fields.contract_type || 'Unknown',
+          deadlineType: d.deadlineType
         });
         map.set(dateKey, existing);
       });
@@ -638,8 +641,8 @@ const DeadlineCalendarHeatmap = ({
           dateKey: string;
           isCurrentMonth: boolean; 
           isToday: boolean;
-          deadlines: { count: number; contracts: { id: string; name: string; type: string }[] } | null;
-        }[] 
+          deadlines: { count: number; contracts: { id: string; name: string; type: string; deadlineType: string }[] } | null;
+        }[]
       }[] 
     }[] = [];
 
@@ -741,8 +744,9 @@ const DeadlineCalendarHeatmap = ({
                                   {day.deadlines!.count} deadline{day.deadlines!.count > 1 ? 's' : ''}
                                 </div>
                                 {day.deadlines!.contracts.slice(0, 3).map((c, i) => (
-                                  <div key={i} className="flex items-center gap-1">
-                                    <span>• {c.name}</span>
+                                  <div key={i} className="flex items-center gap-1 text-xs">
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0">{c.deadlineType}</Badge>
+                                    <span className="truncate max-w-[120px]">{c.name}</span>
                                   </div>
                                 ))}
                                 {day.deadlines!.contracts.length > 3 && (
@@ -791,13 +795,13 @@ const DeadlineCalendarHeatmap = ({
   );
 };
 
-// Renewals Table
-const RenewalsTable = ({ contracts, referenceDate }: { contracts: ContractRecord[]; referenceDate: Date }) => {
-  const upcomingRenewals = useMemo(() => {
+// Deadlines Table (renamed from RenewalsTable)
+const DeadlinesTable = ({ contracts, referenceDate }: { contracts: ContractRecord[]; referenceDate: Date }) => {
+  const upcomingDeadlines = useMemo(() => {
     return contracts
       .map((c) => {
-        const { date, days } = getEarliestDeadline(c, referenceDate);
-        return { contract: c, deadlineDate: date, daysUntil: days };
+        const { date, days, type } = getEarliestDeadline(c, referenceDate);
+        return { contract: c, deadlineDate: date, daysUntil: days, deadlineType: type };
       })
       .filter(({ daysUntil }) => daysUntil !== null && daysUntil >= 0 && daysUntil <= 90)
       .sort((a, b) => (a.daysUntil ?? 0) - (b.daysUntil ?? 0));
@@ -810,13 +814,13 @@ const RenewalsTable = ({ contracts, referenceDate }: { contracts: ContractRecord
     return "";
   };
 
-  if (upcomingRenewals.length === 0) {
+  if (upcomingDeadlines.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            Upcoming Renewals (90 Days)
+            Upcoming Deadlines (90 Days)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -833,7 +837,7 @@ const RenewalsTable = ({ contracts, referenceDate }: { contracts: ContractRecord
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <Clock className="h-4 w-4" />
-          Upcoming Renewals (90 Days)
+          Upcoming Deadlines (90 Days)
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -842,13 +846,14 @@ const RenewalsTable = ({ contracts, referenceDate }: { contracts: ContractRecord
             <TableRow>
               <TableHead>Contract</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Deadline Type</TableHead>
               <TableHead>Deadline</TableHead>
               <TableHead>Days Until</TableHead>
               <TableHead>Jurisdiction</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {upcomingRenewals.slice(0, 10).map(({ contract, deadlineDate, daysUntil }) => {
+            {upcomingDeadlines.slice(0, 10).map(({ contract, deadlineDate, daysUntil, deadlineType }) => {
               const parties = parseParties(contract.fields.parties);
               return (
                 <TableRow key={contract.id} className={getRowColor(daysUntil)}>
@@ -862,6 +867,14 @@ const RenewalsTable = ({ contracts, referenceDate }: { contracts: ContractRecord
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{contract.fields.contract_type || "—"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant={deadlineType === 'Expiration' ? 'destructive' : deadlineType === 'Notice' ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {deadlineType || "—"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {deadlineDate ? new Date(deadlineDate).toLocaleDateString() : "—"}
@@ -1068,14 +1081,16 @@ const Analytics = () => {
   // Calculate KPIs
   const kpis = useMemo(() => {
     const underReview = filteredContracts.filter((c) => c.fields.status === "under_review").length;
-    const upcomingRenewals = filteredContracts.filter((c) =>
-      isWithinDays(c.fields.notice_deadline, 30, currentDate) || isWithinDays(c.fields.expiration_date, 30, currentDate)
+    const upcomingDeadlines = filteredContracts.filter((c) =>
+      isWithinDays(c.fields.notice_deadline, 30, currentDate) || 
+      isWithinDays(c.fields.expiration_date, 30, currentDate) ||
+      isWithinDays(c.fields.first_renewal_date, 30, currentDate)
     ).length;
 
     return {
       total: filteredContracts.length,
       underReview,
-      upcomingRenewals,
+      upcomingDeadlines,
       materialUpdates: regulatoryData?.material_documents || 0,
     };
   }, [filteredContracts, regulatoryData, currentDate]);
@@ -1182,11 +1197,11 @@ const Analytics = () => {
             variant={kpis.underReview > 0 ? "warning" : "default"}
           />
           <KPICard
-            title="Upcoming Renewals (30d)"
-            value={kpis.upcomingRenewals}
+            title="Upcoming Deadlines (30d)"
+            value={kpis.upcomingDeadlines}
             icon={Clock}
             loading={contractsLoading}
-            variant={kpis.upcomingRenewals > 0 ? "destructive" : "default"}
+            variant={kpis.upcomingDeadlines > 0 ? "destructive" : "default"}
           />
           <KPICard
             title="Material Reg. Updates"
@@ -1236,7 +1251,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
         ) : (
-          <RenewalsTable contracts={filteredContracts} referenceDate={currentDate} />
+          <DeadlinesTable contracts={filteredContracts} referenceDate={currentDate} />
         )}
 
         {/* Regulatory Summary */}
