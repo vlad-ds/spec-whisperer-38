@@ -35,7 +35,16 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Contracts Chat API error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: `API error: ${response.status}` }), {
+      
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to process your request";
+      if (response.status === 502 || response.status === 504) {
+        errorMessage = "The contracts service is temporarily unavailable. Please try again in a moment.";
+      } else if (response.status === 429) {
+        errorMessage = "Too many requests. Please wait a moment before trying again.";
+      }
+      
+      return new Response(JSON.stringify({ error: errorMessage, status: response.status }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
