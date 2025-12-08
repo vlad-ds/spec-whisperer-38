@@ -83,38 +83,48 @@ const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
         );
       }
       
-      // Process inline formatting
+      // Process inline formatting - split by newlines and render each as a block
+      const lines = part.split('\n');
+      
       return (
-        <span key={i} className="whitespace-pre-wrap">
-          {part.split('\n').map((line, lineIdx) => {
+        <div key={i}>
+          {lines.map((line, lineIdx) => {
+            // Empty line = paragraph break
+            if (line.trim() === '') {
+              return <div key={lineIdx} className="h-3" />;
+            }
             // Headers
             if (line.startsWith('### ')) {
-              return <h3 key={lineIdx} className="font-semibold mt-2 mb-1">{line.slice(4)}</h3>;
+              return <h3 key={lineIdx} className="font-semibold mt-3 mb-1">{line.slice(4)}</h3>;
             }
             if (line.startsWith('## ')) {
-              return <h2 key={lineIdx} className="font-bold text-lg mt-3 mb-1">{line.slice(3)}</h2>;
+              return <h2 key={lineIdx} className="font-bold text-lg mt-4 mb-1">{line.slice(3)}</h2>;
             }
             // Lists
             if (line.match(/^[\-\*]\s/)) {
-              return <li key={lineIdx} className="ml-4">{line.slice(2)}</li>;
+              return <li key={lineIdx} className="ml-4 list-disc">{renderInlineFormatting(line.slice(2))}</li>;
             }
             if (line.match(/^\d+\.\s/)) {
-              return <li key={lineIdx} className="ml-4 list-decimal">{line.replace(/^\d+\.\s/, '')}</li>;
+              return <li key={lineIdx} className="ml-4 list-decimal">{renderInlineFormatting(line.replace(/^\d+\.\s/, ''))}</li>;
             }
-            // Bold/italic
-            let processed = line
-              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-              .replace(/\*(.+?)\*/g, '<em>$1</em>');
-            
-            if (processed !== line) {
-              return <span key={lineIdx} dangerouslySetInnerHTML={{ __html: processed }} />;
-            }
-            
-            return lineIdx > 0 ? <><br key={`br-${lineIdx}`} />{line}</> : line;
+            // Regular paragraph with inline formatting
+            return <p key={lineIdx} className="mb-1">{renderInlineFormatting(line)}</p>;
           })}
-        </span>
+        </div>
       );
     });
+  };
+
+  // Helper to render bold/italic inline
+  const renderInlineFormatting = (text: string) => {
+    const processed = text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>');
+    
+    if (processed !== text) {
+      return <span dangerouslySetInnerHTML={{ __html: processed }} />;
+    }
+    return text;
   };
 
   return (
