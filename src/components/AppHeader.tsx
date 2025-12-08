@@ -3,13 +3,15 @@ import {
   FileText, 
   BarChart3, 
   BookOpen, 
-  MessageSquare 
+  MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
   { to: "/contracts", label: "Contracts", icon: FileText },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/compychat", label: "CompyChat", icon: MessagesSquare },
   { to: "/regulatory-digest", label: "Digest", icon: BookOpen },
   { to: "/regchat", label: "RegChat", icon: MessageSquare },
 ];
