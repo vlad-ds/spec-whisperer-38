@@ -151,45 +151,62 @@ serve(async (req) => {
           );
         }
 
-        // Fetch PDF from ComplyFlow API
+        // Fetch PDF from ComplyFlow API with 30-second timeout
         const pdfUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}/pdf`;
         console.log(`Fetching PDF from ComplyFlow API: ${pdfUrl}`);
 
-        const pdfResponse = await fetch(pdfUrl, {
-          headers: {
-            'X-API-Key': complyflowApiKey,
-          },
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-        if (!pdfResponse.ok) {
-          if (pdfResponse.status === 404) {
+        try {
+          const pdfResponse = await fetch(pdfUrl, {
+            headers: {
+              'X-API-Key': complyflowApiKey,
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (!pdfResponse.ok) {
+            if (pdfResponse.status === 404) {
+              return new Response(
+                JSON.stringify({ error: 'PDF not found. This contract may have been uploaded before PDF storage was enabled.' }),
+                { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+            const error = await pdfResponse.text();
+            console.error('ComplyFlow PDF error:', pdfResponse.status, error);
             return new Response(
-              JSON.stringify({ error: 'PDF not found. This contract may have been uploaded before PDF storage was enabled.' }),
-              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({ error: 'Failed to fetch PDF' }),
+              { status: pdfResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          const error = await pdfResponse.text();
-          console.error('ComplyFlow PDF error:', pdfResponse.status, error);
-          return new Response(
-            JSON.stringify({ error: 'Failed to fetch PDF' }),
-            { status: pdfResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+
+          // Get the PDF blob and headers
+          const pdfBlob = await pdfResponse.blob();
+          const contentDisposition = pdfResponse.headers.get('Content-Disposition') || 'inline; filename="contract.pdf"';
+          
+          console.log(`Serving PDF, size: ${pdfBlob.size} bytes`);
+
+          // Return the PDF with proper headers
+          return new Response(pdfBlob, {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': contentDisposition,
+            },
+          });
+        } catch (err: unknown) {
+          clearTimeout(timeoutId);
+          if (err instanceof Error && err.name === 'AbortError') {
+            console.error('PDF fetch timed out after 30 seconds');
+            return new Response(
+              JSON.stringify({ error: 'PDF fetch timed out. Please try again.' }),
+              { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          throw err;
         }
-
-        // Get the PDF blob and headers
-        const pdfBlob = await pdfResponse.blob();
-        const contentDisposition = pdfResponse.headers.get('Content-Disposition') || 'inline; filename="contract.pdf"';
-        
-        console.log(`Serving PDF, size: ${pdfBlob.size} bytes`);
-
-        // Return the PDF with proper headers
-        return new Response(pdfBlob, {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': contentDisposition,
-          },
-        });
       }
 
       case 'get': {
