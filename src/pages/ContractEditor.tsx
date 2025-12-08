@@ -113,12 +113,15 @@ const ContractEditor = () => {
     }
   }, [isError, navigate]);
 
-  // Check if PDF is available
+  // Check if PDF is available - reset state when id changes
   useEffect(() => {
     if (!id) return;
     
+    // Reset state immediately when id changes
+    setHasPdf(false);
+    setIsPdfLoading(true);
+    
     const checkPdfAvailable = async () => {
-      setIsPdfLoading(true);
       try {
         const result = await getPdfUrl(id);
         setHasPdf(!!result.pdfPath);
