@@ -58,7 +58,7 @@ const ContractEditor = () => {
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
   const [hasPdf, setHasPdf] = useState(false);
-  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [isPdfLoading, setIsPdfLoading] = useState(true);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
