@@ -590,244 +590,199 @@ const ContractsByTypeChart = ({ data }: { data: { name: string; value: number }[
   );
 };
 
-// Contract Timeline (Gantt View)
-const ContractTimeline = ({ 
+// Deadline Calendar Heatmap
+const DeadlineCalendarHeatmap = ({ 
   contracts, 
   referenceDate 
 }: { 
   contracts: ContractRecord[]; 
   referenceDate: Date;
 }) => {
-  // Get contracts with valid dates, sorted by expiration
-  const timelineData = useMemo(() => {
-    const withDates = contracts
-      .filter(c => c.fields.expiration_date || c.fields.effective_date)
-      .map(c => {
-        const effectiveDate = c.fields.effective_date ? new Date(c.fields.effective_date) : null;
-        const expirationDate = c.fields.expiration_date ? new Date(c.fields.expiration_date) : null;
-        const noticeDeadline = c.fields.notice_deadline ? new Date(c.fields.notice_deadline) : null;
-        const parties = parseParties(c.fields.parties);
-        const daysUntilExpiry = expirationDate ? getDaysUntil(c.fields.expiration_date!, referenceDate) : null;
-        
-        return {
-          id: c.id,
-          name: parties[0] || c.fields.filename || 'Unknown',
-          type: c.fields.contract_type || 'Unknown',
-          effectiveDate,
-          expirationDate,
-          noticeDeadline,
-          daysUntilExpiry,
-        };
-      })
-      // Only show contracts expiring in next 12 months from reference date
-      .filter(c => {
-        if (!c.expirationDate) return false;
-        const daysUntil = c.daysUntilExpiry;
-        return daysUntil !== null && daysUntil >= -30 && daysUntil <= 365;
-      })
-      .sort((a, b) => {
-        if (!a.expirationDate || !b.expirationDate) return 0;
-        return a.expirationDate.getTime() - b.expirationDate.getTime();
-      })
-      .slice(0, 8); // Show top 8 contracts
-
-    return withDates;
-  }, [contracts, referenceDate]);
-
-  // Calculate timeline bounds (3 months before to 12 months after reference date)
-  const timelineBounds = useMemo(() => {
-    const start = new Date(referenceDate);
-    start.setMonth(start.getMonth() - 3);
-    const end = new Date(referenceDate);
-    end.setMonth(end.getMonth() + 12);
-    return { start, end, totalDays: Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) };
-  }, [referenceDate]);
-
-  const getPositionPercent = (date: Date) => {
-    const daysSinceStart = (date.getTime() - timelineBounds.start.getTime()) / (1000 * 60 * 60 * 24);
-    return Math.max(0, Math.min(100, (daysSinceStart / timelineBounds.totalDays) * 100));
-  };
-
-  const todayPercent = getPositionPercent(referenceDate);
-
-  // Generate month markers
-  const monthMarkers = useMemo(() => {
-    const markers: { label: string; percent: number }[] = [];
-    const current = new Date(timelineBounds.start);
-    current.setDate(1);
-    current.setMonth(current.getMonth() + 1);
+  // Build a map of dates to deadlines
+  const deadlineMap = useMemo(() => {
+    const map = new Map<string, { count: number; contracts: { id: string; name: string; type: string }[] }>();
     
-    while (current <= timelineBounds.end) {
-      markers.push({
-        label: current.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
-        percent: getPositionPercent(current),
+    contracts.forEach(c => {
+      const deadlines = [
+        c.fields.expiration_date,
+        c.fields.notice_deadline,
+      ].filter(Boolean) as string[];
+      
+      const parties = parseParties(c.fields.parties);
+      const name = parties[0] || c.fields.filename || 'Unknown';
+      
+      deadlines.forEach(d => {
+        const dateKey = d.split('T')[0]; // YYYY-MM-DD
+        const existing = map.get(dateKey) || { count: 0, contracts: [] };
+        existing.count++;
+        existing.contracts.push({ 
+          id: c.id, 
+          name, 
+          type: c.fields.contract_type || 'Unknown' 
+        });
+        map.set(dateKey, existing);
       });
-      current.setMonth(current.getMonth() + 1);
-    }
-    return markers;
-  }, [timelineBounds]);
+    });
+    
+    return map;
+  }, [contracts]);
 
-  if (timelineData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Contract Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-            No contracts with upcoming expirations
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Generate 4 months of calendar data starting from reference date
+  const calendarMonths = useMemo(() => {
+    const months: { 
+      label: string; 
+      weeks: { 
+        days: { 
+          date: Date; 
+          dateKey: string;
+          isCurrentMonth: boolean; 
+          isToday: boolean;
+          deadlines: { count: number; contracts: { id: string; name: string; type: string }[] } | null;
+        }[] 
+      }[] 
+    }[] = [];
+
+    for (let m = 0; m < 4; m++) {
+      const monthStart = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + m, 1);
+      const monthEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + m + 1, 0);
+      
+      const label = monthStart.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      const weeks: typeof months[0]['weeks'] = [];
+      
+      // Start from the Sunday of the week containing the 1st
+      const calStart = new Date(monthStart);
+      calStart.setDate(calStart.getDate() - calStart.getDay());
+      
+      let currentWeek: typeof weeks[0] = { days: [] };
+      const current = new Date(calStart);
+      
+      // Generate up to 6 weeks
+      for (let w = 0; w < 6; w++) {
+        currentWeek = { days: [] };
+        for (let d = 0; d < 7; d++) {
+          const dateKey = current.toISOString().split('T')[0];
+          const isCurrentMonth = current.getMonth() === monthStart.getMonth();
+          const isToday = current.toDateString() === referenceDate.toDateString();
+          
+          currentWeek.days.push({
+            date: new Date(current),
+            dateKey,
+            isCurrentMonth,
+            isToday,
+            deadlines: deadlineMap.get(dateKey) || null,
+          });
+          current.setDate(current.getDate() + 1);
+        }
+        weeks.push(currentWeek);
+        
+        // Stop if we've passed the month end
+        if (current > monthEnd && current.getDay() === 0) break;
+      }
+      
+      months.push({ label, weeks });
+    }
+    
+    return months;
+  }, [referenceDate, deadlineMap]);
+
+  const getHeatColor = (count: number) => {
+    if (count === 0) return "";
+    if (count === 1) return "bg-warning/50";
+    if (count === 2) return "bg-warning/80";
+    return "bg-destructive/70";
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Contract Timeline (Next 12 Months)</CardTitle>
+        <CardTitle className="text-base">Deadline Calendar (Next 4 Months)</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-1">
-          {/* Month labels */}
-          <div className="relative h-6 mb-2 border-b border-border">
-            {monthMarkers.map((marker, i) => (
-              <div
-                key={i}
-                className="absolute text-[10px] text-muted-foreground transform -translate-x-1/2"
-                style={{ left: `${marker.percent}%` }}
-              >
-                {marker.label}
+        <div className="grid grid-cols-2 gap-4">
+          {calendarMonths.map((month, mi) => (
+            <div key={mi} className="space-y-1">
+              <div className="text-xs font-medium text-center mb-2">{month.label}</div>
+              {/* Day headers */}
+              <div className="grid grid-cols-7 gap-px text-[9px] text-muted-foreground text-center mb-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                  <div key={i}>{d}</div>
+                ))}
               </div>
-            ))}
-          </div>
-
-          {/* Timeline rows */}
-          <div className="space-y-2">
-            {timelineData.map((contract) => {
-              const startPercent = contract.effectiveDate 
-                ? getPositionPercent(contract.effectiveDate) 
-                : 0;
-              const endPercent = contract.expirationDate 
-                ? getPositionPercent(contract.expirationDate) 
-                : 100;
-              const barWidth = Math.max(2, endPercent - startPercent);
-              
-              // Urgency color
-              let barColor = "bg-primary/60";
-              if (contract.daysUntilExpiry !== null) {
-                if (contract.daysUntilExpiry < 0) barColor = "bg-muted-foreground/40";
-                else if (contract.daysUntilExpiry < 30) barColor = "bg-destructive/70";
-                else if (contract.daysUntilExpiry < 90) barColor = "bg-warning/70";
-              }
-
-              return (
-                <div key={contract.id} className="flex items-center gap-2 h-7">
-                  {/* Contract name */}
-                  <div className="w-28 truncate text-xs font-medium" title={contract.name}>
-                    <Link 
-                      to={`/contracts/${contract.id}`}
-                      className="hover:text-primary hover:underline"
-                    >
-                      {contract.name}
-                    </Link>
-                  </div>
-                  
-                  {/* Timeline bar */}
-                  <div className="flex-1 relative h-5 bg-muted/30 rounded">
-                    {/* Today marker */}
-                    <div 
-                      className="absolute top-0 bottom-0 w-px bg-primary z-10"
-                      style={{ left: `${todayPercent}%` }}
-                    />
-                    
-                    {/* Contract bar */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={`absolute top-1 bottom-1 rounded ${barColor} cursor-pointer hover:opacity-80 transition-opacity`}
-                          style={{ 
-                            left: `${startPercent}%`, 
-                            width: `${barWidth}%`,
-                            minWidth: '4px'
-                          }}
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="text-xs space-y-1">
-                          <div className="font-medium">{contract.name}</div>
-                          <div className="text-muted-foreground">{contract.type}</div>
-                          {contract.effectiveDate && (
-                            <div>Start: {contract.effectiveDate.toLocaleDateString()}</div>
-                          )}
-                          {contract.expirationDate && (
-                            <div>Expires: {contract.expirationDate.toLocaleDateString()}</div>
-                          )}
-                          {contract.daysUntilExpiry !== null && contract.daysUntilExpiry >= 0 && (
-                            <div className="font-medium text-destructive">
-                              {contract.daysUntilExpiry} days remaining
+              {/* Calendar grid */}
+              <div className="space-y-px">
+                {month.weeks.map((week, wi) => (
+                  <div key={wi} className="grid grid-cols-7 gap-px">
+                    {week.days.map((day, di) => {
+                      const hasDeadlines = day.deadlines && day.deadlines.count > 0;
+                      
+                      return (
+                        <Tooltip key={di}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={`
+                                aspect-square flex items-center justify-center text-[10px] rounded-sm cursor-default
+                                ${!day.isCurrentMonth ? 'text-muted-foreground/30' : ''}
+                                ${day.isToday ? 'ring-1 ring-primary font-bold' : ''}
+                                ${hasDeadlines ? getHeatColor(day.deadlines!.count) : 'bg-muted/20'}
+                                ${hasDeadlines ? 'cursor-pointer' : ''}
+                              `}
+                            >
+                              {day.date.getDate()}
                             </div>
+                          </TooltipTrigger>
+                          {hasDeadlines && (
+                            <TooltipContent>
+                              <div className="text-xs space-y-1">
+                                <div className="font-medium">
+                                  {day.date.toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' })}
+                                </div>
+                                <div className="text-muted-foreground">
+                                  {day.deadlines!.count} deadline{day.deadlines!.count > 1 ? 's' : ''}
+                                </div>
+                                {day.deadlines!.contracts.slice(0, 3).map((c, i) => (
+                                  <div key={i} className="flex items-center gap-1">
+                                    <span>• {c.name}</span>
+                                  </div>
+                                ))}
+                                {day.deadlines!.contracts.length > 3 && (
+                                  <div className="text-muted-foreground">
+                                    +{day.deadlines!.contracts.length - 3} more
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipContent>
                           )}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Notice deadline marker */}
-                    {contract.noticeDeadline && getPositionPercent(contract.noticeDeadline) > 0 && getPositionPercent(contract.noticeDeadline) < 100 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div 
-                            className="absolute top-0 bottom-0 w-1 bg-warning cursor-pointer"
-                            style={{ left: `${getPositionPercent(contract.noticeDeadline)}%` }}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Notice deadline: {contract.noticeDeadline.toLocaleDateString()}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                        </Tooltip>
+                      );
+                    })}
                   </div>
-
-                  {/* Days remaining badge */}
-                  <div className="w-16 text-right">
-                    {contract.daysUntilExpiry !== null && contract.daysUntilExpiry >= 0 ? (
-                      <Badge 
-                        variant={contract.daysUntilExpiry < 30 ? "destructive" : contract.daysUntilExpiry < 90 ? "outline" : "secondary"}
-                        className="text-[10px] px-1.5"
-                      >
-                        {contract.daysUntilExpiry}d
-                      </Badge>
-                    ) : contract.daysUntilExpiry !== null ? (
-                      <span className="text-[10px] text-muted-foreground">expired</span>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-muted/20 rounded-sm" />
+            <span>No deadlines</span>
           </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t text-[10px] text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-2 bg-primary/60 rounded" />
-              <span>&gt;90 days</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-2 bg-warning/70 rounded" />
-              <span>30-90 days</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-2 bg-destructive/70 rounded" />
-              <span>&lt;30 days</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-px h-3 bg-primary" />
-              <span>Today</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-1 h-3 bg-warning" />
-              <span>Notice deadline</span>
-            </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-warning/50 rounded-sm" />
+            <span>1 deadline</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-warning/80 rounded-sm" />
+            <span>2 deadlines</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-destructive/70 rounded-sm" />
+            <span>3+ deadlines</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 ring-1 ring-primary rounded-sm" />
+            <span>Today</span>
           </div>
         </div>
       </CardContent>
@@ -1255,7 +1210,7 @@ const Analytics = () => {
           ) : (
             <>
               <ContractsByTypeChart data={contractsByTypeData} />
-              <ContractTimeline contracts={filteredContracts} referenceDate={currentDate} />
+              <DeadlineCalendarHeatmap contracts={filteredContracts} referenceDate={currentDate} />
             </>
           )}
         </div>
