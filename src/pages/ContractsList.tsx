@@ -340,7 +340,7 @@ const ContractsList = () => {
           <div>
             <h2 className="text-2xl font-bold text-foreground">Contracts</h2>
             <p className="text-muted-foreground mt-1">
-              View and manage your uploaded contracts
+              Click on a contract to review and edit it
             </p>
           </div>
           <Button onClick={() => setUploadDialogOpen(true)}>
