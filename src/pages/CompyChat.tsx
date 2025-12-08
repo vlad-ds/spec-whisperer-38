@@ -118,17 +118,19 @@ const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
   };
 
   return (
-    <div className={cn('flex gap-3 mb-4', isUser ? 'justify-end' : 'justify-start')}>
-      <div className={cn('max-w-[80%]', isUser ? '' : 'w-full max-w-[80%]')}>
+    <div className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}>
+      <div className={cn('max-w-[85%]', isUser ? '' : 'w-full max-w-[85%]')}>
         <div
           className={cn(
-            'rounded-lg px-4 py-2 text-sm',
+            'rounded-2xl px-4 py-3 shadow-sm',
             isUser 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-muted text-foreground'
+              ? 'bg-primary text-primary-foreground rounded-br-md' 
+              : 'bg-card border border-border rounded-bl-md'
           )}
         >
-          {renderContent(message.content)}
+          <div className="text-sm leading-relaxed">
+            {renderContent(message.content)}
+          </div>
         </div>
         {!isUser && message.sources && (
           <ContractSourcesList sources={message.sources} />
@@ -255,41 +257,41 @@ const CompyChat = () => {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
-          <div className="border-b border-border p-4">
-            <h1 className="text-lg font-semibold">
-              {activeConversation?.title || 'CompyChat'}
-            </h1>
+          <div className="border-b border-border p-4 bg-card">
+            <h1 className="text-xl font-semibold">CompyChat</h1>
             <p className="text-sm text-muted-foreground">
               Ask questions about your contracts - data, clauses, obligations, and more
             </p>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-6">
             {!activeConversation || activeConversation.messages.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                  <h2 className="text-xl font-medium">How can I help you?</h2>
-                  <p className="text-muted-foreground text-sm max-w-md">
+              <div className="h-full flex items-center justify-center min-h-[300px]">
+                <div className="text-center space-y-4">
+                  <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-8 w-8 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-semibold">How can I help you?</h2>
+                  <p className="text-muted-foreground max-w-md">
                     Ask me about your contracts - counts, dates, parties, clauses, and obligations.
                   </p>
                 </div>
               </div>
             ) : (
-              <>
+              <div className="max-w-3xl mx-auto space-y-6">
                 {activeConversation.messages.map((msg, i) => (
                   <ChatMessage key={i} message={msg} />
                 ))}
                 {isLoading && (
-                  <div className="flex gap-3 mb-4">
-                    <div className="bg-muted rounded-lg px-4 py-2 flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="flex gap-3">
+                    <div className="bg-muted rounded-xl px-4 py-3 flex items-center gap-2 shadow-sm">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       <span className="text-sm text-muted-foreground">Thinking...</span>
                     </div>
                   </div>
                 )}
                 <div ref={scrollRef} />
-              </>
+              </div>
             )}
           </ScrollArea>
 
