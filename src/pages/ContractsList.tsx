@@ -23,7 +23,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2, ExternalLink, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/AppHeader';
@@ -240,6 +241,24 @@ const ContractsList = () => {
       <AppHeader />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        <Alert className="mb-6 border-primary/20 bg-primary/5">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-sm">
+              <strong>Note:</strong> Contract fields should be edited via this site. Click on a contract below to edit it.
+            </span>
+            <a 
+              href="https://airtable.com/appN3qGux4iVHtdU8/shrjlpeDlxZqd7UOq" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline ml-4 text-sm font-medium shrink-0"
+            >
+              View in Airtable
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </AlertDescription>
+        </Alert>
+
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-foreground">Contracts</h2>
           <p className="text-muted-foreground mt-1">
