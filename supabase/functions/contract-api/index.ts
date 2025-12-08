@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,8 +14,6 @@ serve(async (req) => {
   const apiKey = Deno.env.get('AIRTABLE_API_KEY');
   const baseId = Deno.env.get('AIRTABLE_BASE_ID');
   const tableName = Deno.env.get('AIRTABLE_TABLE_NAME');
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!apiKey || !baseId || !tableName) {
     console.error('Airtable configuration missing');
@@ -25,11 +22,6 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-
-  // Create Supabase client for storage operations
-  const supabase = supabaseUrl && supabaseServiceKey 
-    ? createClient(supabaseUrl, supabaseServiceKey)
-    : null;
 
   try {
     const contentType = req.headers.get('content-type') || '';
@@ -110,9 +102,9 @@ serve(async (req) => {
           );
         }
 
-        // Fetch from Airtable to get PDF URL field
+        // Fetch from Airtable to check if pdf_url exists
         const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
-        console.log(`Fetching PDF URL from Airtable: ${airtableUrl}`);
+        console.log(`Checking PDF availability from Airtable: ${airtableUrl}`);
 
         const airtableResponse = await fetch(airtableUrl, {
           headers: {
@@ -124,7 +116,7 @@ serve(async (req) => {
           const error = await airtableResponse.text();
           console.error('Airtable error:', airtableResponse.status, error);
           return new Response(
-            JSON.stringify({ error: 'Failed to fetch PDF URL' }),
+            JSON.stringify({ error: 'Failed to check PDF availability' }),
             { status: airtableResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -133,8 +125,9 @@ serve(async (req) => {
         const pdfPath = record.fields?.pdf_url;
         const filename = record.fields?.filename;
         
+        // Return whether PDF exists (pdfPath being non-null indicates PDF is available)
         return new Response(JSON.stringify({ 
-          pdfPath: pdfPath || null, 
+          pdfPath: pdfPath ? true : null, // Just indicate availability, not the actual path
           filename: filename || null
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -149,62 +142,52 @@ serve(async (req) => {
           );
         }
 
-        if (!supabase) {
+        const complyflowApiKey = Deno.env.get('COMPLYFLOW_API_KEY');
+        if (!complyflowApiKey) {
+          console.error('COMPLYFLOW_API_KEY not configured');
           return new Response(
-            JSON.stringify({ error: 'Storage not configured' }),
+            JSON.stringify({ error: 'ComplyFlow API not configured' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        // Fetch PDF path from Airtable
-        const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${contractId}`;
-        console.log(`Fetching PDF path for download: ${airtableUrl}`);
+        // Fetch PDF from ComplyFlow API
+        const pdfUrl = `https://complyflow-production.up.railway.app/contracts/${contractId}/pdf`;
+        console.log(`Fetching PDF from ComplyFlow API: ${pdfUrl}`);
 
-        const airtableResponse = await fetch(airtableUrl, {
-          headers: { 'Authorization': `Bearer ${apiKey}` },
+        const pdfResponse = await fetch(pdfUrl, {
+          headers: {
+            'X-API-Key': complyflowApiKey,
+          },
         });
 
-        if (!airtableResponse.ok) {
+        if (!pdfResponse.ok) {
+          if (pdfResponse.status === 404) {
+            return new Response(
+              JSON.stringify({ error: 'PDF not found. This contract may have been uploaded before PDF storage was enabled.' }),
+              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          const error = await pdfResponse.text();
+          console.error('ComplyFlow PDF error:', pdfResponse.status, error);
           return new Response(
-            JSON.stringify({ error: 'Contract not found' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ error: 'Failed to fetch PDF' }),
+            { status: pdfResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const record = await airtableResponse.json();
-        const pdfPath = record.fields?.pdf_url;
-        const filename = record.fields?.filename || 'contract.pdf';
-
-        if (!pdfPath) {
-          return new Response(
-            JSON.stringify({ error: 'PDF not available for this contract' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log(`Downloading PDF from storage: ${pdfPath}`);
+        // Get the PDF blob and headers
+        const pdfBlob = await pdfResponse.blob();
+        const contentDisposition = pdfResponse.headers.get('Content-Disposition') || 'inline; filename="contract.pdf"';
         
-        // Download the PDF from storage
-        const { data: pdfData, error: downloadError } = await supabase.storage
-          .from('contracts')
-          .download(pdfPath);
-
-        if (downloadError || !pdfData) {
-          console.error('PDF download error:', downloadError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to download PDF' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log(`Serving PDF: ${filename}`);
+        console.log(`Serving PDF, size: ${pdfBlob.size} bytes`);
 
         // Return the PDF with proper headers
-        return new Response(pdfData, {
+        return new Response(pdfBlob, {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `inline; filename="${filename}"`,
+            'Content-Disposition': contentDisposition,
           },
         });
       }
@@ -474,14 +457,6 @@ serve(async (req) => {
           );
         }
 
-        if (!supabase) {
-          console.error('Supabase not configured for storage');
-          return new Response(
-            JSON.stringify({ error: 'Storage not configured' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
         // Get the form data from the original request
         const formData = await req.formData();
         const file = formData.get('file') as File;
@@ -493,34 +468,9 @@ serve(async (req) => {
           );
         }
 
-        const filename = file.name;
-        const timestamp = Date.now();
-        const storagePath = `${timestamp}_${filename}`;
+        console.log(`Uploading file to ComplyFlow API: ${file.name}`);
 
-        console.log(`Uploading file to storage: ${storagePath}`);
-
-        // Step 1: Upload PDF to Supabase storage
-        const fileBuffer = await file.arrayBuffer();
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('contracts')
-          .upload(storagePath, fileBuffer, {
-            contentType: 'application/pdf',
-            upsert: false,
-          });
-
-        if (storageError) {
-          console.error('Storage upload error:', storageError);
-          return new Response(
-            JSON.stringify({ error: `Storage upload failed: ${storageError.message}` }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log('File uploaded to storage:', storageData.path);
-
-        // Step 2: Forward to ComplyFlow API for processing
-        console.log('Uploading to ComplyFlow API for extraction...');
-        
+        // Send directly to ComplyFlow API for processing and storage
         const uploadFormData = new FormData();
         uploadFormData.append('file', file);
 
@@ -564,31 +514,6 @@ serve(async (req) => {
 
         const uploadResult = await uploadResponse.json();
         console.log('Upload successful, contract_id:', uploadResult.contract_id);
-
-        // Step 3: Update Airtable with the PDF storage path
-        const airtableUpdateUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${uploadResult.contract_id}`;
-        console.log(`Updating Airtable with PDF URL: ${airtableUpdateUrl}`);
-
-        const airtableUpdateResponse = await fetch(airtableUpdateUrl, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fields: {
-              pdf_url: storagePath,
-            },
-          }),
-        });
-
-        if (!airtableUpdateResponse.ok) {
-          const error = await airtableUpdateResponse.text();
-          console.error('Airtable update error:', airtableUpdateResponse.status, error);
-          // Don't fail the upload, just log the error
-        } else {
-          console.log('Airtable updated with PDF URL');
-        }
 
         // Transform response to match expected ContractRecord format
         const result = {
