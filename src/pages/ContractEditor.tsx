@@ -255,7 +255,11 @@ const ContractEditor = () => {
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
-              onClick={() => setShowPdfViewer(true)}
+              onClick={() => {
+                setIsPdfLoading(true);
+                setPdfError(null);
+                setShowPdfViewer(true);
+              }}
               className="gap-2"
             >
               <FileText className="h-4 w-4" />
@@ -443,38 +447,47 @@ const ContractEditor = () => {
           <SheetHeader className="p-4 border-b">
             <SheetTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              {contract?.filename}
-            </SheetTitle>
-          </SheetHeader>
-          {id && (
-            <div className="relative w-full h-[calc(100vh-80px)]">
-              {pdfError ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4 p-6 text-center">
-                  <AlertCircle className="h-12 w-12 text-destructive" />
-                  <div>
-                    <p className="font-medium text-foreground mb-1">Failed to load PDF</p>
-                    <p className="text-sm text-muted-foreground">{pdfError}</p>
+            {contract?.filename}
+          </SheetTitle>
+        </SheetHeader>
+        {id && (
+          <div className="relative w-full h-[calc(100vh-80px)]">
+            {pdfError ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 p-6 text-center">
+                <AlertCircle className="h-12 w-12 text-destructive" />
+                <p className="text-muted-foreground">{pdfError}</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setPdfError(null);
+                    setIsPdfLoading(true);
+                    setPdfKey(prev => prev + 1);
+                  }}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </Button>
+              </div>
+            ) : (
+              <>
+                {isPdfLoading && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground text-sm">Loading PDF... This may take a moment.</p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setPdfError(null);
-                      setPdfKey(k => k + 1);
-                    }}
-                    className="gap-2"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Try Again
-                  </Button>
-                </div>
-              ) : (
+                )}
                 <iframe
                   key={pdfKey}
                   src={getPdfProxyUrl(id)}
                   className="w-full h-full"
                   title="PDF Viewer"
-                  onError={() => setPdfError('The PDF could not be loaded. This contract may not have a PDF attached.')}
+                  onError={() => {
+                    setIsPdfLoading(false);
+                    setPdfError('The PDF could not be loaded. This contract may not have a PDF attached.');
+                  }}
                   onLoad={(e) => {
+                    setIsPdfLoading(false);
                     const iframe = e.target as HTMLIFrameElement;
                     try {
                       const doc = iframe.contentDocument;
@@ -486,11 +499,12 @@ const ContractEditor = () => {
                     }
                   }}
                 />
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+              </>
+            )}
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
 
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
         <DialogContent>
