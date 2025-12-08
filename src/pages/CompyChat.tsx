@@ -21,42 +21,109 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-// Sources display component
+// Group sources by contract document
+interface GroupedSource {
+  contract_id: string;
+  filename: string;
+  chunks: { text: string; score: number }[];
+  maxScore: number;
+}
+
+const groupSourcesByDocument = (sources: ContractSource[]): GroupedSource[] => {
+  const grouped = sources.reduce((acc, source) => {
+    const key = source.contract_id;
+    if (!acc[key]) {
+      acc[key] = {
+        contract_id: source.contract_id,
+        filename: source.filename,
+        chunks: [],
+        maxScore: 0,
+      };
+    }
+    acc[key].chunks.push({ text: source.text, score: source.score });
+    acc[key].maxScore = Math.max(acc[key].maxScore, source.score);
+    return acc;
+  }, {} as Record<string, GroupedSource>);
+
+  return Object.values(grouped).sort((a, b) => b.maxScore - a.maxScore);
+};
+
+// Sources display component - grouped by document
 const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
 
   if (!sources || sources.length === 0) return null;
 
+  const groupedSources = groupSourcesByDocument(sources);
+
+  const toggleDoc = (contractId: string) => {
+    setExpandedDocs(prev => {
+      const next = new Set(prev);
+      if (next.has(contractId)) {
+        next.delete(contractId);
+      } else {
+        next.add(contractId);
+      }
+      return next;
+    });
+  };
+
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-2">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-3">
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <FileText className="h-3.5 w-3.5" />
-          <span>Sources ({sources.length})</span>
+          <span>Sources ({groupedSources.length} contracts)</span>
           {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2 space-y-2">
-        {sources.map((source, idx) => (
+        {groupedSources.map((doc) => (
           <div 
-            key={`${source.contract_id}-${idx}`} 
-            className="bg-background border rounded-md p-3 text-sm"
+            key={doc.contract_id} 
+            className="bg-background border rounded-md overflow-hidden"
           >
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <Link 
-                to={`/contracts/${source.contract_id}`}
-                className="font-medium text-primary hover:underline flex items-center gap-1"
-              >
-                {source.filename}
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-              <span className="text-xs text-muted-foreground">
-                {Math.round(source.score * 100)}% match
-              </span>
+            <div 
+              className="flex items-center justify-between gap-2 p-3 cursor-pointer hover:bg-muted/50"
+              onClick={() => toggleDoc(doc.contract_id)}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Link 
+                  to={`/contracts/${doc.contract_id}`}
+                  className="font-medium text-sm text-primary hover:underline flex items-center gap-1 truncate"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {doc.filename}
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </Link>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  ({doc.chunks.length} {doc.chunks.length === 1 ? 'excerpt' : 'excerpts'})
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-medium text-primary">
+                  {Math.round(doc.maxScore * 100)}% relevance
+                </span>
+                {expandedDocs.has(doc.contract_id) ? (
+                  <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                )}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground line-clamp-3">
-              "{source.text}"
-            </p>
+            {expandedDocs.has(doc.contract_id) && (
+              <div className="border-t px-3 py-2 space-y-2 bg-muted/30">
+                {doc.chunks.map((chunk, idx) => (
+                  <div key={idx} className="text-xs text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground/70 mr-1">
+                      [{Math.round(chunk.score * 100)}%]
+                    </span>
+                    <span className="line-clamp-2">"{chunk.text}"</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </CollapsibleContent>
@@ -100,12 +167,23 @@ const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
             if (line.startsWith('## ')) {
               return <h2 key={lineIdx} className="font-bold text-lg mt-4 mb-1">{line.slice(3)}</h2>;
             }
-            // Lists
+            // Lists - wrap in proper ul/ol
             if (line.match(/^[\-\*]\s/)) {
-              return <li key={lineIdx} className="ml-4 list-disc">{renderInlineFormatting(line.slice(2))}</li>;
+              return (
+                <div key={lineIdx} className="flex gap-2 ml-2">
+                  <span className="text-muted-foreground">•</span>
+                  <span>{renderInlineFormatting(line.slice(2))}</span>
+                </div>
+              );
             }
             if (line.match(/^\d+\.\s/)) {
-              return <li key={lineIdx} className="ml-4 list-decimal">{renderInlineFormatting(line.replace(/^\d+\.\s/, ''))}</li>;
+              const num = line.match(/^(\d+)\./)?.[1];
+              return (
+                <div key={lineIdx} className="flex gap-2 ml-2">
+                  <span className="text-muted-foreground">{num}.</span>
+                  <span>{renderInlineFormatting(line.replace(/^\d+\.\s/, ''))}</span>
+                </div>
+              );
             }
             // Regular paragraph with inline formatting
             return <p key={lineIdx} className="mb-1">{renderInlineFormatting(line)}</p>;
