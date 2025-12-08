@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, createContext, useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -11,7 +11,12 @@ import {
   ExternalLink,
   ChevronDown,
   X,
+  Calendar,
+  Info,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +80,12 @@ interface RegulatoryData {
   documents_by_topic: Record<string, number>;
 }
 
+// Simulated date for demo purposes (October 1, 2013)
+const SIMULATED_DATE = new Date(2013, 9, 1); // Month is 0-indexed
+
+// Context for sharing the current "now" date across components
+const DateContext = createContext<Date>(new Date());
+
 // Helper functions
 const parseParties = (parties: string | undefined): string[] => {
   if (!parties) return [];
@@ -86,25 +97,25 @@ const parseParties = (parties: string | undefined): string[] => {
   }
 };
 
-const isWithinDays = (dateStr: string | null | undefined, days: number): boolean => {
+const isWithinDays = (dateStr: string | null | undefined, days: number, referenceDate: Date): boolean => {
   if (!dateStr) return false;
   const date = new Date(dateStr);
-  const now = new Date();
+  const now = new Date(referenceDate);
   now.setHours(0, 0, 0, 0);
   const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
   return date >= now && date <= future;
 };
 
-const getDaysUntil = (dateStr: string | null | undefined): number | null => {
+const getDaysUntil = (dateStr: string | null | undefined, referenceDate: Date): number | null => {
   if (!dateStr) return null;
   const date = new Date(dateStr);
-  const now = new Date();
+  const now = new Date(referenceDate);
   now.setHours(0, 0, 0, 0);
   const diffTime = date.getTime() - now.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-const getEarliestDeadline = (contract: ContractRecord): { date: string | null; days: number | null } => {
+const getEarliestDeadline = (contract: ContractRecord, referenceDate: Date): { date: string | null; days: number | null } => {
   const deadlines = [
     contract.fields.notice_deadline,
     contract.fields.expiration_date,
@@ -114,7 +125,7 @@ const getEarliestDeadline = (contract: ContractRecord): { date: string | null; d
   
   const sorted = deadlines.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
   const earliest = sorted[0];
-  return { date: earliest, days: getDaysUntil(earliest) };
+  return { date: earliest, days: getDaysUntil(earliest, referenceDate) };
 };
 
 // Chart colors using design tokens
@@ -603,16 +614,16 @@ const DeadlinesChart = ({ data }: { data: { month: string; deadlines: number }[]
 };
 
 // Renewals Table
-const RenewalsTable = ({ contracts }: { contracts: ContractRecord[] }) => {
+const RenewalsTable = ({ contracts, referenceDate }: { contracts: ContractRecord[]; referenceDate: Date }) => {
   const upcomingRenewals = useMemo(() => {
     return contracts
       .map((c) => {
-        const { date, days } = getEarliestDeadline(c);
+        const { date, days } = getEarliestDeadline(c, referenceDate);
         return { contract: c, deadlineDate: date, daysUntil: days };
       })
       .filter(({ daysUntil }) => daysUntil !== null && daysUntil >= 0 && daysUntil <= 90)
       .sort((a, b) => (a.daysUntil ?? 0) - (b.daysUntil ?? 0));
-  }, [contracts]);
+  }, [contracts, referenceDate]);
 
   const getRowColor = (days: number | null) => {
     if (days === null) return "";
@@ -767,6 +778,10 @@ const Analytics = () => {
   const [selectedJurisdictions, setSelectedJurisdictions] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [useSimulatedDate, setUseSimulatedDate] = useState(true);
+
+  // Use simulated date (Oct 1, 2013) or real current date
+  const currentDate = useSimulatedDate ? SIMULATED_DATE : new Date();
 
   // Fetch contracts from Airtable
   const { data: contractsData, isLoading: contractsLoading } = useQuery({
@@ -876,7 +891,7 @@ const Analytics = () => {
   const kpis = useMemo(() => {
     const underReview = filteredContracts.filter((c) => c.fields.status === "under_review").length;
     const upcomingRenewals = filteredContracts.filter((c) =>
-      isWithinDays(c.fields.notice_deadline, 30) || isWithinDays(c.fields.expiration_date, 30)
+      isWithinDays(c.fields.notice_deadline, 30, currentDate) || isWithinDays(c.fields.expiration_date, 30, currentDate)
     ).length;
 
     return {
@@ -885,7 +900,7 @@ const Analytics = () => {
       upcomingRenewals,
       materialUpdates: regulatoryData?.material_documents || 0,
     };
-  }, [filteredContracts, regulatoryData]);
+  }, [filteredContracts, regulatoryData, currentDate]);
 
   // Chart data: Contracts by type
   const contractsByTypeData = useMemo(() => {
@@ -912,7 +927,7 @@ const Analytics = () => {
   // Chart data: Upcoming deadlines by month
   const deadlinesByMonthData = useMemo(() => {
     const monthCounts: Record<string, number> = {};
-    const now = new Date();
+    const now = currentDate;
 
     // Initialize next 6 months
     for (let i = 0; i < 6; i++) {
@@ -937,19 +952,45 @@ const Analytics = () => {
     });
 
     return Object.entries(monthCounts).map(([month, deadlines]) => ({ month, deadlines }));
-  }, [filteredContracts]);
+  }, [filteredContracts, currentDate]);
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
 
       <main className="container py-6 space-y-6">
+        {/* Demo Mode Banner */}
+        {useSimulatedDate && (
+          <Alert className="border-primary/50 bg-primary/5">
+            <Info className="h-4 w-4" />
+            <AlertTitle className="flex items-center gap-2">
+              Demo Mode Active — Viewing as October 1, 2013
+            </AlertTitle>
+            <AlertDescription>
+              The current dataset contains historical contracts from 2012-2019. To demonstrate how deadline 
+              tracking works, we're simulating the date as October 1, 2013. Toggle off below to see how the 
+              dashboard appears with today's actual date.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Compliance Analytics</h2>
             <p className="text-muted-foreground text-sm">
               Overview of contracts and regulatory updates
             </p>
+          </div>
+          <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg border">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="demo-mode" className="text-sm cursor-pointer">
+              Demo mode (Oct 1, 2013)
+            </Label>
+            <Switch
+              id="demo-mode"
+              checked={useSimulatedDate}
+              onCheckedChange={setUseSimulatedDate}
+            />
           </div>
         </div>
 
@@ -1038,7 +1079,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
         ) : (
-          <RenewalsTable contracts={filteredContracts} />
+          <RenewalsTable contracts={filteredContracts} referenceDate={currentDate} />
         )}
 
         {/* Regulatory Summary */}
