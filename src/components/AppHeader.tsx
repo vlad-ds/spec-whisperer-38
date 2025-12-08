@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import { 
-  Upload, 
   FileText, 
   BarChart3, 
   BookOpen, 
@@ -9,7 +8,6 @@ import {
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { to: "/", label: "Upload", icon: Upload },
   { to: "/contracts", label: "Contracts", icon: FileText },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/regulatory-digest", label: "Digest", icon: BookOpen },

@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,13 +23,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2, ExternalLink, Info } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { FileText, ArrowUpDown, ArrowUp, ArrowDown, Trash2, ExternalLink, Info, Upload } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/AppHeader';
-import { deleteContract, getContract, parseContract } from '@/lib/api';
+import { deleteContract, getContract, parseContract, uploadContract } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { FileDropzone } from '@/components/FileDropzone';
+import { FileSelected } from '@/components/FileSelected';
+import { ProcessingState } from '@/components/ProcessingState';
 
 interface AirtableRecord {
   id: string;
@@ -53,6 +62,7 @@ interface AirtableResponse {
 
 type SortField = 'filename' | 'contract_type' | 'parties' | 'effective_date' | 'expiration_date' | 'status' | 'createdTime';
 type SortDirection = 'asc' | 'desc';
+type UploadState = 'idle' | 'selected' | 'uploading' | 'error';
 
 const fetchContracts = async (): Promise<AirtableRecord[]> => {
   const { data, error } = await supabase.functions.invoke<AirtableResponse>('airtable-contracts');
@@ -125,6 +135,13 @@ const ContractsList = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<AirtableRecord | null>(null);
   
+  // Upload dialog state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadState, setUploadState] = useState<UploadState>('idle');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const abortController = useRef<AbortController | null>(null);
+  
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -132,8 +149,8 @@ const ContractsList = () => {
   const { data: contracts, isLoading, error } = useQuery({
     queryKey: ['contracts'],
     queryFn: fetchContracts,
-    staleTime: 30 * 1000, // Consider stale after 30 seconds
-    refetchOnMount: 'always', // Always refetch when navigating to this page
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
   });
 
   const deleteMutation = useMutation({
@@ -156,6 +173,67 @@ const ContractsList = () => {
     },
   });
 
+  // Upload handlers
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    setUploadState('selected');
+    setUploadError(null);
+  };
+
+  const handleClearFile = () => {
+    setSelectedFile(null);
+    setUploadState('idle');
+    setUploadError(null);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setUploadState('uploading');
+    setUploadError(null);
+    abortController.current = new AbortController();
+
+    try {
+      const result = await uploadContract(selectedFile);
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      toast({
+        title: 'Contract uploaded',
+        description: 'Metadata has been extracted successfully.',
+      });
+      setUploadDialogOpen(false);
+      setUploadState('idle');
+      setSelectedFile(null);
+      navigate(`/contracts/${result.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      setUploadError(message);
+      setUploadState('error');
+      toast({
+        title: 'Upload failed',
+        description: message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCancelUpload = () => {
+    abortController.current?.abort();
+    setUploadState('selected');
+  };
+
+  const handleRetryUpload = () => {
+    handleUpload();
+  };
+
+  const handleCloseUploadDialog = () => {
+    if (uploadState !== 'uploading') {
+      setUploadDialogOpen(false);
+      setUploadState('idle');
+      setSelectedFile(null);
+      setUploadError(null);
+    }
+  };
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -177,7 +255,6 @@ const ContractsList = () => {
     }
   };
 
-  // Prefetch contract on hover for faster navigation
   const prefetchContract = useCallback((id: string) => {
     queryClient.prefetchQuery({
       queryKey: ['contract', id],
@@ -259,11 +336,17 @@ const ContractsList = () => {
           </AlertDescription>
         </Alert>
 
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-foreground">Contracts</h2>
-          <p className="text-muted-foreground mt-1">
-            View and manage your uploaded contracts
-          </p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Contracts</h2>
+            <p className="text-muted-foreground mt-1">
+              View and manage your uploaded contracts
+            </p>
+          </div>
+          <Button onClick={() => setUploadDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Contract
+          </Button>
         </div>
 
         {isLoading ? (
@@ -283,13 +366,11 @@ const ContractsList = () => {
         ) : sortedContracts.length === 0 ? (
           <Card className="p-8 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No contracts found</p>
-            <Link 
-              to="/" 
-              className="text-primary hover:underline mt-2 inline-block"
-            >
+            <p className="text-muted-foreground mb-4">No contracts found</p>
+            <Button onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
               Upload your first contract
-            </Link>
+            </Button>
           </Card>
         ) : (
           <Card>
@@ -417,6 +498,7 @@ const ContractsList = () => {
         )}
       </main>
 
+      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -438,6 +520,44 @@ const ContractsList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={handleCloseUploadDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Upload Contract</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {uploadState === 'uploading' ? (
+              <ProcessingState onCancel={handleCancelUpload} />
+            ) : uploadState === 'selected' && selectedFile ? (
+              <FileSelected
+                file={selectedFile}
+                onClear={handleClearFile}
+                onUpload={handleUpload}
+                isUploading={false}
+              />
+            ) : (
+              <FileDropzone
+                onFileSelect={handleFileSelect}
+                disabled={false}
+              />
+            )}
+
+            {uploadState === 'error' && uploadError && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-destructive mb-3">{uploadError}</p>
+                <button
+                  onClick={handleRetryUpload}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
