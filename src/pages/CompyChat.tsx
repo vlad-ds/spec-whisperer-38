@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -131,79 +132,9 @@ const ContractSourcesList = ({ sources }: { sources: ContractSource[] }) => {
   );
 };
 
-// Message component with markdown-like rendering
+// Message component with proper markdown rendering
 const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
   const isUser = message.role === 'user';
-  
-  // Simple markdown rendering for basic formatting
-  const renderContent = (content: string) => {
-    // Split by code blocks first
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    
-    return parts.map((part, i) => {
-      if (part.startsWith('```') && part.endsWith('```')) {
-        const code = part.slice(3, -3).replace(/^\w+\n/, '');
-        return (
-          <pre key={i} className="bg-muted rounded p-2 my-2 overflow-x-auto text-xs">
-            <code>{code}</code>
-          </pre>
-        );
-      }
-      
-      // Process inline formatting - split by newlines and render each as a block
-      const lines = part.split('\n');
-      
-      return (
-        <div key={i}>
-          {lines.map((line, lineIdx) => {
-            // Empty line = paragraph break
-            if (line.trim() === '') {
-              return <div key={lineIdx} className="h-3" />;
-            }
-            // Headers
-            if (line.startsWith('### ')) {
-              return <h3 key={lineIdx} className="font-semibold mt-3 mb-1">{line.slice(4)}</h3>;
-            }
-            if (line.startsWith('## ')) {
-              return <h2 key={lineIdx} className="font-bold text-lg mt-4 mb-1">{line.slice(3)}</h2>;
-            }
-            // Lists - wrap in proper ul/ol
-            if (line.match(/^[\-\*]\s/)) {
-              return (
-                <div key={lineIdx} className="flex gap-2 ml-2">
-                  <span className="text-muted-foreground">•</span>
-                  <span>{renderInlineFormatting(line.slice(2))}</span>
-                </div>
-              );
-            }
-            if (line.match(/^\d+\.\s/)) {
-              const num = line.match(/^(\d+)\./)?.[1];
-              return (
-                <div key={lineIdx} className="flex gap-2 ml-2">
-                  <span className="text-muted-foreground">{num}.</span>
-                  <span>{renderInlineFormatting(line.replace(/^\d+\.\s/, ''))}</span>
-                </div>
-              );
-            }
-            // Regular paragraph with inline formatting
-            return <p key={lineIdx} className="mb-1">{renderInlineFormatting(line)}</p>;
-          })}
-        </div>
-      );
-    });
-  };
-
-  // Helper to render bold/italic inline
-  const renderInlineFormatting = (text: string) => {
-    const processed = text
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>');
-    
-    if (processed !== text) {
-      return <span dangerouslySetInnerHTML={{ __html: processed }} />;
-    }
-    return text;
-  };
 
   return (
     <div className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}>
@@ -216,8 +147,27 @@ const ChatMessage = ({ message }: { message: ContractChatMessage }) => {
               : 'bg-card border border-border rounded-bl-md'
           )}
         >
-          <div className="text-sm leading-relaxed">
-            {renderContent(message.content)}
+          <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => <h1 className="text-lg font-bold mt-3 mb-2">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-base font-bold mt-3 mb-1">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold mt-2 mb-1">{children}</h3>,
+                p: ({ children }) => <p className="my-2">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="text-sm">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                code: ({ children }) => (
+                  <code className="bg-muted px-1 py-0.5 rounded text-xs">{children}</code>
+                ),
+                pre: ({ children }) => (
+                  <pre className="bg-muted rounded p-2 my-2 overflow-x-auto text-xs">{children}</pre>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
           </div>
         </div>
         {!isUser && message.sources && (
