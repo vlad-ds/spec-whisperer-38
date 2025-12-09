@@ -527,6 +527,12 @@ const ContractsList = () => {
           <DialogHeader>
             <DialogTitle>Upload Contract</DialogTitle>
           </DialogHeader>
+          <Alert className="border-amber-500/30 bg-amber-500/10">
+            <Info className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-sm text-amber-700">
+              <strong>Demo only:</strong> Do not upload sensitive, confidential, or company documents.
+            </AlertDescription>
+          </Alert>
           <div className="py-4">
             {uploadState === 'uploading' ? (
               <ProcessingState onCancel={handleCancelUpload} />
